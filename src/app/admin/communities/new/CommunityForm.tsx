@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { slugify } from "@/lib/slugify";
 
+import { AddressAutocomplete } from "../AddressAutocomplete";
 import { createCommunity, type CreateCommunityState } from "./actions";
 
 const INITIAL_STATE: CreateCommunityState = { status: "idle" };
@@ -50,6 +51,18 @@ export function CommunityForm() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
+
+  // Address fields are controlled so the autocomplete on the street line can
+  // fan out and populate the rest of the form (city/state/zip/lat/lng) when
+  // the admin picks a Mapbox suggestion.
+  const [line1, setLine1] = useState("");
+  const [line2, setLine2] = useState("");
+  const [city, setCity] = useState("");
+  const [stateField, setStateField] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [country, setCountry] = useState("US");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
 
   const fieldErrors =
     state.status === "error" ? (state.fieldErrors ?? {}) : {};
@@ -144,28 +157,75 @@ export function CommunityForm() {
           Address
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Street address" error={fieldErrors.line1}>
-            <input name="line1" required className={inputCls} />
+          <Field
+            label="Street address"
+            error={fieldErrors.line1}
+            hint="Start typing to search — pick a result to fill the rest."
+          >
+            <AddressAutocomplete
+              name="line1"
+              required
+              value={line1}
+              onChange={setLine1}
+              onAutofill={(f) => {
+                setLine1(f.line1);
+                if (f.city) setCity(f.city);
+                if (f.state) setStateField(f.state);
+                if (f.postal_code) setPostalCode(f.postal_code);
+                if (f.country) setCountry(f.country);
+                if (f.latitude) setLatitude(f.latitude);
+                if (f.longitude) setLongitude(f.longitude);
+              }}
+              country={country || "us"}
+              className={inputCls}
+            />
           </Field>
 
           <Field label="Apt, suite, etc." error={fieldErrors.line2}>
-            <input name="line2" className={inputCls} />
+            <input
+              name="line2"
+              value={line2}
+              onChange={(e) => setLine2(e.target.value)}
+              className={inputCls}
+            />
           </Field>
 
           <Field label="City" error={fieldErrors.city}>
-            <input name="city" required className={inputCls} />
+            <input
+              name="city"
+              required
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              className={inputCls}
+            />
           </Field>
 
           <Field label="State" error={fieldErrors.state}>
-            <input name="state" required className={inputCls} />
+            <input
+              name="state"
+              required
+              value={stateField}
+              onChange={(e) => setStateField(e.target.value)}
+              className={inputCls}
+            />
           </Field>
 
           <Field label="Postal code" error={fieldErrors.postal_code}>
-            <input name="postal_code" className={inputCls} />
+            <input
+              name="postal_code"
+              value={postalCode}
+              onChange={(e) => setPostalCode(e.target.value)}
+              className={inputCls}
+            />
           </Field>
 
           <Field label="Country" error={fieldErrors.country}>
-            <input name="country" defaultValue="US" className={inputCls} />
+            <input
+              name="country"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              className={inputCls}
+            />
           </Field>
 
           <Field
@@ -177,6 +237,8 @@ export function CommunityForm() {
               name="latitude"
               type="number"
               step="any"
+              value={latitude}
+              onChange={(e) => setLatitude(e.target.value)}
               className={inputCls}
             />
           </Field>
@@ -190,6 +252,8 @@ export function CommunityForm() {
               name="longitude"
               type="number"
               step="any"
+              value={longitude}
+              onChange={(e) => setLongitude(e.target.value)}
               className={inputCls}
             />
           </Field>

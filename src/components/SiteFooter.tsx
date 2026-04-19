@@ -26,7 +26,7 @@ export async function SiteFooter() {
     <footer className="border-t border-border bg-background px-6 py-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-3 text-center sm:flex-row sm:justify-between sm:text-left">
         <p className="text-[11px] uppercase leading-none tracking-[3px] text-muted">
-          © {new Date().getFullYear()} Classic Communities
+          © {new Date().getFullYear()} Jacob Halbert
         </p>
         <nav className="flex items-center gap-6">
           {session ? (
