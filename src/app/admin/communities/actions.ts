@@ -133,6 +133,10 @@ export async function updateCommunity(
   // `community-logos` bucket.
   const newLogoPath = optionalStr(formData, "logo_path");
 
+  // Checkbox. An unchecked checkbox is omitted from FormData entirely,
+  // so presence === true.
+  const starred = formData.get("starred") != null;
+
   if (Object.keys(fieldErrors).length > 0) {
     return {
       status: "error",
@@ -206,6 +210,7 @@ export async function updateCommunity(
       cover_photo_path: newCoverPath,
       site_plan_path: newSitePlanPath,
       logo_path: newLogoPath,
+      starred,
       address_id: addressId,
     })
     .eq("id", id);
@@ -296,6 +301,44 @@ export async function setCoverPhoto(
   revalidatePath(`/communities/${existing.slug}`);
 
   return { ok: true };
+}
+
+export type SetStarredResult =
+  | { ok: true; starred: boolean }
+  | { ok: false; message: string };
+
+/**
+ * Inline star toggle for the admin list. Same spirit as `setCoverPhoto`:
+ * a lightweight single-field mutation so the star button in the row can
+ * optimistically flip without rebuilding the whole edit drawer.
+ *
+ * The boolean coming from the client is trusted after the admin check —
+ * we deliberately take the final value (not a "toggle the current value"
+ * signal) so rapid clicks end up consistent with whatever the UI shows.
+ */
+export async function setStarred(
+  communityId: string,
+  starred: boolean,
+): Promise<SetStarredResult> {
+  await requireAdmin();
+
+  if (typeof communityId !== "string" || !communityId) {
+    return { ok: false, message: "Missing community id." };
+  }
+
+  const supabase = await createClient();
+
+  const { error: updateErr } = await supabase
+    .from("communities")
+    .update({ starred })
+    .eq("id", communityId);
+  if (updateErr) return { ok: false, message: updateErr.message };
+
+  revalidatePath("/admin/communities");
+  revalidatePath("/");
+  revalidatePath("/communities");
+
+  return { ok: true, starred };
 }
 
 export type CommunityPhotoRow = {

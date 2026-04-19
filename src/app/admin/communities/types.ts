@@ -18,6 +18,7 @@ export type CommunityWithAddress = {
   cover_photo_path: string | null;
   site_plan_path: string | null;
   logo_path: string | null;
+  starred: boolean;
   created_at: string;
   address: {
     id: string;

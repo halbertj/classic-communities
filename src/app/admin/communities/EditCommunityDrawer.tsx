@@ -119,6 +119,10 @@ export function EditCommunityDrawer({
   );
   const reorderSnapshotRef = useRef<CommunityPhotoRow[] | null>(null);
 
+  // "Featured on the home page" flag. Mirrors the inline star toggle on
+  // the table; here we just persist along with the rest of the form.
+  const [starred, setStarred] = useState<boolean>(community.starred);
+
   // Slide-in animation (applies the translate-x-0 on the next frame after
   // mount so the transform actually animates).
   const [shown, setShown] = useState(false);
@@ -802,6 +806,20 @@ export function EditCommunityDrawer({
             value={logoPath ?? ""}
           />
 
+          <Field label="Name" error={fieldErrors.name}>
+            <input
+              name="name"
+              required
+              value={name}
+              onChange={(e) => {
+                const next = e.target.value;
+                setName(next);
+                if (!slugTouched) setSlug(slugify(next));
+              }}
+              className={inputCls}
+            />
+          </Field>
+
           <section className="flex flex-col gap-3">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
               Cover photo
@@ -891,6 +909,188 @@ export function EditCommunityDrawer({
               {uploadError && (
                 <span className="text-xs text-red-600" role="alert">
                   {uploadError}
+                </span>
+              )}
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <div className="flex items-end justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+                Photos
+              </h3>
+              <span className="text-xs text-muted">
+                {photos.length + photoQueue.length}{" "}
+                {photos.length + photoQueue.length === 1 ? "photo" : "photos"}
+              </span>
+            </div>
+
+            <div
+              onDragEnter={handlePhotosDragOver}
+              onDragOver={handlePhotosDragOver}
+              onDragLeave={handlePhotosDragLeave}
+              onDrop={handlePhotosDrop}
+              onClick={() => photoInputRef.current?.click()}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                // Only react when the drop zone itself has focus — not when a
+                // nested thumbnail's remove button fires Enter/Space.
+                if (e.target !== e.currentTarget) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  photoInputRef.current?.click();
+                }
+              }}
+              aria-label="Add photos"
+              className={`relative cursor-pointer rounded-lg border-2 border-dashed bg-surface p-3 transition-colors ${
+                photosDragging
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-foreground/30"
+              }`}
+            >
+              {photosLoading ? (
+                <div className="flex h-32 items-center justify-center text-sm text-muted">
+                  Loading photos…
+                </div>
+              ) : photos.length === 0 && photoQueue.length === 0 ? (
+                <div className="flex h-32 flex-col items-center justify-center gap-1 text-center text-sm text-muted">
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden
+                  >
+                    <path
+                      d="M12 16V4m0 0l-4 4m4-4l4 4"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span>Drag photos here</span>
+                  <span className="text-xs">
+                    or click to choose — you can select multiple
+                  </span>
+                </div>
+              ) : (
+                <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {photos.map((p) => (
+                    <li
+                      key={p.id}
+                      draggable
+                      onDragStart={(e) => handlePhotoDragStart(e, p.id)}
+                      onDragOver={handlePhotoDragOver}
+                      onDragEnter={(e) => handlePhotoDragEnter(e, p.id)}
+                      onDrop={handlePhotoDrop}
+                      onDragEnd={handlePhotoDragEnd}
+                      className={`group relative aspect-square cursor-grab overflow-hidden rounded-md border border-border bg-background transition-opacity active:cursor-grabbing ${
+                        reorderDraggingId === p.id ? "opacity-40" : ""
+                      }`}
+                    >
+                      {/* `draggable={false}` on the <img> so the native image
+                          drag (which would fire on the img itself) doesn't
+                          preempt the <li>'s reorder drag. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={publicPhotoUrl(p.storage_path)}
+                        alt=""
+                        draggable={false}
+                        className="h-full w-full select-none object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleRemovePhoto(p.id);
+                        }}
+                        aria-label="Remove photo"
+                        className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity hover:bg-black/80 focus:opacity-100 group-hover:opacity-100"
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          aria-hidden
+                        >
+                          <path
+                            d="M3 3l6 6M9 3L3 9"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </button>
+                    </li>
+                  ))}
+                  {photoQueue.map((q) => (
+                    <li
+                      key={q.id}
+                      className="relative flex aspect-square items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-background"
+                      title={q.name}
+                    >
+                      <svg
+                        className="h-5 w-5 animate-spin text-muted"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        aria-hidden
+                      >
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="9"
+                          stroke="currentColor"
+                          strokeOpacity="0.25"
+                          strokeWidth="3"
+                        />
+                        <path
+                          d="M21 12a9 9 0 0 0-9-9"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {photosDragging && (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-primary/10 text-sm font-medium text-primary"
+                >
+                  Drop to upload
+                </div>
+              )}
+            </div>
+
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handlePhotoInputChange}
+            />
+
+            <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
+              <span>
+                Images up to 15MB each. Drop multiple at once — drag
+                thumbnails to reorder.
+              </span>
+              {photosError && (
+                <span className="text-red-600" role="alert">
+                  {photosError}
                 </span>
               )}
             </div>
@@ -1113,206 +1313,10 @@ export function EditCommunityDrawer({
             </div>
           </section>
 
-          <section className="flex flex-col gap-3">
-            <div className="flex items-end justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                Photos
-              </h3>
-              <span className="text-xs text-muted">
-                {photos.length + photoQueue.length}{" "}
-                {photos.length + photoQueue.length === 1 ? "photo" : "photos"}
-              </span>
-            </div>
-
-            <div
-              onDragEnter={handlePhotosDragOver}
-              onDragOver={handlePhotosDragOver}
-              onDragLeave={handlePhotosDragLeave}
-              onDrop={handlePhotosDrop}
-              onClick={() => photoInputRef.current?.click()}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                // Only react when the drop zone itself has focus — not when a
-                // nested thumbnail's remove button fires Enter/Space.
-                if (e.target !== e.currentTarget) return;
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  photoInputRef.current?.click();
-                }
-              }}
-              aria-label="Add photos"
-              className={`relative cursor-pointer rounded-lg border-2 border-dashed bg-surface p-3 transition-colors ${
-                photosDragging
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-foreground/30"
-              }`}
-            >
-              {photosLoading ? (
-                <div className="flex h-32 items-center justify-center text-sm text-muted">
-                  Loading photos…
-                </div>
-              ) : photos.length === 0 && photoQueue.length === 0 ? (
-                <div className="flex h-32 flex-col items-center justify-center gap-1 text-center text-sm text-muted">
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    aria-hidden
-                  >
-                    <path
-                      d="M12 16V4m0 0l-4 4m4-4l4 4"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <span>Drag photos here</span>
-                  <span className="text-xs">
-                    or click to choose — you can select multiple
-                  </span>
-                </div>
-              ) : (
-                <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                  {photos.map((p) => (
-                    <li
-                      key={p.id}
-                      draggable
-                      onDragStart={(e) => handlePhotoDragStart(e, p.id)}
-                      onDragOver={handlePhotoDragOver}
-                      onDragEnter={(e) => handlePhotoDragEnter(e, p.id)}
-                      onDrop={handlePhotoDrop}
-                      onDragEnd={handlePhotoDragEnd}
-                      className={`group relative aspect-square cursor-grab overflow-hidden rounded-md border border-border bg-background transition-opacity active:cursor-grabbing ${
-                        reorderDraggingId === p.id ? "opacity-40" : ""
-                      }`}
-                    >
-                      {/* `draggable={false}` on the <img> so the native image
-                          drag (which would fire on the img itself) doesn't
-                          preempt the <li>'s reorder drag. */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={publicPhotoUrl(p.storage_path)}
-                        alt=""
-                        draggable={false}
-                        className="h-full w-full select-none object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleRemovePhoto(p.id);
-                        }}
-                        aria-label="Remove photo"
-                        className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity hover:bg-black/80 focus:opacity-100 group-hover:opacity-100"
-                      >
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 12 12"
-                          fill="none"
-                          aria-hidden
-                        >
-                          <path
-                            d="M3 3l6 6M9 3L3 9"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      </button>
-                    </li>
-                  ))}
-                  {photoQueue.map((q) => (
-                    <li
-                      key={q.id}
-                      className="relative flex aspect-square items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-background"
-                      title={q.name}
-                    >
-                      <svg
-                        className="h-5 w-5 animate-spin text-muted"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        aria-hidden
-                      >
-                        <circle
-                          cx="12"
-                          cy="12"
-                          r="9"
-                          stroke="currentColor"
-                          strokeOpacity="0.25"
-                          strokeWidth="3"
-                        />
-                        <path
-                          d="M21 12a9 9 0 0 0-9-9"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {photosDragging && (
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-primary/10 text-sm font-medium text-primary"
-                >
-                  Drop to upload
-                </div>
-              )}
-            </div>
-
-            <input
-              ref={photoInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={handlePhotoInputChange}
-            />
-
-            <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
-              <span>
-                Images up to 15MB each. Drop multiple at once — drag
-                thumbnails to reorder.
-              </span>
-              {photosError && (
-                <span className="text-red-600" role="alert">
-                  {photosError}
-                </span>
-              )}
-            </div>
-          </section>
-
           <section className="flex flex-col gap-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
               Basics
             </h3>
-            <Field label="Name" error={fieldErrors.name}>
-              <input
-                name="name"
-                required
-                value={name}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setName(next);
-                  if (!slugTouched) setSlug(slugify(next));
-                }}
-                className={inputCls}
-              />
-            </Field>
-
             <Field
               label="Slug"
               hint="URL path, e.g. /communities/silver-creek"
@@ -1381,6 +1385,23 @@ export function EditCommunityDrawer({
                 />
               </Field>
             </div>
+
+            <label className="mt-1 flex cursor-pointer items-start gap-3 rounded-md border border-border bg-surface px-3 py-3 text-sm">
+              <input
+                type="checkbox"
+                name="starred"
+                checked={starred}
+                onChange={(e) => setStarred(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-amber-500"
+              />
+              <span className="flex flex-col">
+                <span className="font-medium">Feature on the home page</span>
+                <span className="text-xs text-muted">
+                  Starred communities are spotlighted above the map on the
+                  home page.
+                </span>
+              </span>
+            </label>
           </section>
 
           <section className="flex flex-col gap-4">

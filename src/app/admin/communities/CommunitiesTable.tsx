@@ -1,10 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useRef, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 
-import { setCoverPhoto } from "./actions";
+import { setCoverPhoto, setStarred } from "./actions";
 import { EditCommunityDrawer } from "./EditCommunityDrawer";
 import type { CommunityType, CommunityWithAddress } from "./types";
 
@@ -32,14 +33,26 @@ export function CommunitiesTable({
     Record<string, string | null>
   >({});
 
+  // Same pattern for the inline star toggle.
+  const [starredOverrides, setStarredOverrides] = useState<
+    Record<string, boolean>
+  >({});
+
   const effectivePath = (c: CommunityWithAddress): string | null =>
     c.id in coverOverrides ? coverOverrides[c.id] : c.cover_photo_path;
+
+  const effectiveStarred = (c: CommunityWithAddress): boolean =>
+    c.id in starredOverrides ? starredOverrides[c.id] : c.starred;
 
   const selected = selectedId
     ? (() => {
         const base = communities.find((c) => c.id === selectedId);
         if (!base) return null;
-        return { ...base, cover_photo_path: effectivePath(base) };
+        return {
+          ...base,
+          cover_photo_path: effectivePath(base),
+          starred: effectiveStarred(base),
+        };
       })()
     : null;
 
@@ -48,6 +61,7 @@ export function CommunitiesTable({
       <div className="overflow-hidden rounded-lg border border-border">
         <table className="w-full border-collapse text-sm">
           <colgroup>
+            <col style={{ width: 44 }} />
             <col style={{ width: 84 }} />
             <col />
             <col style={{ width: 140 }} />
@@ -58,6 +72,9 @@ export function CommunitiesTable({
           </colgroup>
           <thead className="bg-surface text-left text-xs uppercase tracking-wide text-muted">
             <tr>
+              <th className="px-2 py-3 font-medium">
+                <span className="sr-only">Featured</span>
+              </th>
               <th className="px-3 py-3 font-medium">Cover</th>
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Type</th>
@@ -83,6 +100,18 @@ export function CommunitiesTable({
                 }}
                 className="cursor-pointer border-t border-border outline-none transition-colors hover:bg-surface focus:bg-surface focus:ring-1 focus:ring-inset focus:ring-primary/40"
               >
+                <td className="px-2 py-2 align-middle">
+                  <StarCell
+                    communityId={c.id}
+                    starred={effectiveStarred(c)}
+                    onChange={(value) =>
+                      setStarredOverrides((prev) => ({
+                        ...prev,
+                        [c.id]: value,
+                      }))
+                    }
+                  />
+                </td>
                 <td className="px-3 py-2 align-middle">
                   <CoverCell
                     communityId={c.id}
@@ -127,6 +156,81 @@ export function CommunitiesTable({
         />
       )}
     </>
+  );
+}
+
+/**
+ * Inline star-toggle cell.
+ *   - Click toggles `starred` and fires the server mutation optimistically.
+ *   - We stop event propagation so clicking the star doesn't also open
+ *     the edit drawer (same pattern as the cover upload slot).
+ *   - On failure we revert and surface the error inline via `title`.
+ */
+function StarCell({
+  communityId,
+  starred,
+  onChange,
+}: {
+  communityId: string;
+  starred: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function toggle() {
+    const next = !starred;
+    setError(null);
+    setPending(true);
+    onChange(next);
+    try {
+      const res = await setStarred(communityId, next);
+      if (!res.ok) throw new Error(res.message);
+    } catch (err) {
+      onChange(!next);
+      setError(err instanceof Error ? err.message : "Couldn’t update.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!pending) void toggle();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.stopPropagation();
+        }
+      }}
+      aria-pressed={starred}
+      aria-label={starred ? "Unstar community" : "Star community"}
+      title={
+        error ??
+        (starred ? "Featured on the home page" : "Mark as featured")
+      }
+      className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+        starred
+          ? "text-amber-500 hover:bg-amber-500/10"
+          : "text-muted hover:bg-surface hover:text-foreground"
+      } ${pending ? "opacity-60" : ""}`}
+    >
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill={starred ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <path d="M12 3.5l2.7 5.6 6.1.9-4.4 4.3 1 6.2L12 17.8l-5.4 2.7 1-6.2L3.2 10l6.1-.9L12 3.5z" />
+      </svg>
+    </button>
   );
 }
 
@@ -200,10 +304,12 @@ function CoverCell({
 
   if (publicUrl) {
     return (
-      /* eslint-disable-next-line @next/next/no-img-element */
-      <img
+      <Image
         src={publicUrl}
         alt=""
+        width={64}
+        height={48}
+        sizes="64px"
         className="h-12 w-16 rounded-md object-cover ring-1 ring-black/5"
       />
     );

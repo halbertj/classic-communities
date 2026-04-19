@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 export type GalleryPhoto = {
@@ -62,7 +63,7 @@ export function CommunityGallery({
     /* `pointer-events-none` so the chip doesn't block clicks into the
        underlying tile (which opens the lightbox). `rounded-xl` + white
        background + soft shadow = reads over any photo, light or dark. */
-    <div className="pointer-events-none absolute left-4 top-4 z-10 flex items-center rounded-2xl bg-white/95 px-5 py-3 shadow-[0_4px_16px_rgba(15,23,42,0.22)] ring-1 ring-black/5 backdrop-blur sm:left-5 sm:top-5 sm:px-6 sm:py-4">
+    <div className="pointer-events-none absolute left-4 top-4 z-10 flex items-center rounded-2xl bg-white/95 px-2.5 py-1.5 shadow-[0_4px_16px_rgba(15,23,42,0.22)] ring-1 ring-black/5 backdrop-blur sm:left-5 sm:top-5 sm:px-3 sm:py-2">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={logoUrl}
@@ -81,11 +82,13 @@ export function CommunityGallery({
         className="group relative block h-[320px] w-full overflow-hidden rounded-2xl bg-surface sm:hidden"
         aria-label={`Open ${communityName} photos`}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={tiles[0].url}
           alt={tiles[0].alt}
-          className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+          fill
+          sizes="100vw"
+          priority
+          className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
         {logoOverlay}
@@ -103,6 +106,7 @@ export function CommunityGallery({
             photo={tiles[0]}
             className="h-full w-full"
             onClick={() => openAt(0)}
+            sizes="(min-width: 1280px) 1200px, 100vw"
           />
         ) : useCompactLayout ? (
           // Compact preview for communities with 2–4 photos: a simple
@@ -112,11 +116,13 @@ export function CommunityGallery({
               photo={tiles[0]}
               className="col-span-1"
               onClick={() => openAt(0)}
+              sizes="(min-width: 1280px) 600px, 50vw"
             />
             <GalleryTile
               photo={tiles[1]}
               className="col-span-1"
               onClick={() => openAt(1)}
+              sizes="(min-width: 1280px) 600px, 50vw"
             />
           </div>
         ) : (
@@ -126,6 +132,7 @@ export function CommunityGallery({
               photo={tiles[0]}
               className="col-span-2 row-span-2"
               onClick={() => openAt(0)}
+              sizes="(min-width: 1280px) 600px, 50vw"
             />
 
             {/* Four smaller photos on the right (2×2). Individual tile
@@ -137,6 +144,7 @@ export function CommunityGallery({
                 photo={tiles[i]}
                 className="col-span-1 row-span-1"
                 onClick={() => openAt(i)}
+                sizes="(min-width: 1280px) 300px, 25vw"
               />
             ))}
           </div>
@@ -187,10 +195,14 @@ function GalleryTile({
   photo,
   className,
   onClick,
+  sizes,
 }: {
   photo: GalleryPhoto;
   className: string;
   onClick: () => void;
+  /** Passed straight through to next/image so the optimizer can pick the
+   *  right variant for this tile's share of the grid. */
+  sizes: string;
 }) {
   return (
     <button
@@ -199,12 +211,12 @@ function GalleryTile({
       className={`group relative block overflow-hidden bg-surface ${className}`}
       aria-label={`Open photo: ${photo.alt}`}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Image
         src={photo.url}
         alt={photo.alt}
-        className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
-        loading="lazy"
+        fill
+        sizes={sizes}
+        className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
       />
       <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors duration-200 group-hover:bg-black/10" />
     </button>
@@ -350,12 +362,12 @@ function Lightbox({
                     : "opacity-60 hover:opacity-100"
                 }`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src={p.url}
                   alt=""
-                  className="h-full w-full object-cover"
-                  loading="lazy"
+                  fill
+                  sizes="96px"
+                  className="object-cover"
                 />
               </button>
             ))}

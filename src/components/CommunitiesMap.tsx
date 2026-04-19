@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   MapContainer,
   Marker,
@@ -26,7 +26,11 @@ export type MapCommunity = {
   state: string | null;
   latitude: number;
   longitude: number;
-  cover_photo_url: string | null;
+  // Ordered list of photo URLs for the popup gallery. First entry is the
+  // cover (if present), followed by the community's gallery photos in the
+  // admin-curated order. Empty list means "no imagery" — popup falls back
+  // to the text body only.
+  photo_urls: string[];
 };
 
 const TYPE_LABEL: Record<CommunityType, string> = {
@@ -261,19 +265,7 @@ export default function CommunitiesMap({
           ) : (
             <Popup className="cc-popup" minWidth={280} maxWidth={280}>
               <div className="w-[280px]">
-                {c.cover_photo_url && (
-                  // Plain <img> (not next/image) — Leaflet renders the popup
-                  // into a portal outside React's tree, and next/image's
-                  // layout requirements don't play nicely inside the
-                  // absolutely-positioned popup wrapper.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={c.cover_photo_url}
-                    alt={c.name}
-                    className="cc-popup__cover"
-                    loading="lazy"
-                  />
-                )}
+                <PopupGallery photos={c.photo_urls} name={c.name} />
                 <div className="cc-popup__body">
                   <Link
                     href={`/communities/${c.slug}`}
@@ -300,5 +292,113 @@ export default function CommunitiesMap({
         </Marker>
       ))}
     </MapContainer>
+  );
+}
+
+/**
+ * Popup-internal photo gallery. Cycles through `photos` with prev/next
+ * buttons when more than one is present; renders a single image (no
+ * controls) when there's just a cover; renders nothing at all when the
+ * community has no imagery.
+ *
+ * State is local — Leaflet tears down the popup DOM on close, which
+ * resets the index. That's desired: reopening a popup starts fresh on
+ * the cover.
+ */
+function PopupGallery({ photos, name }: { photos: string[]; name: string }) {
+  const [index, setIndex] = useState(0);
+
+  const clamped = index >= photos.length ? 0 : index;
+  const total = photos.length;
+
+  const go = useCallback(
+    (delta: number) => {
+      if (total === 0) return;
+      setIndex((prev) => (prev + delta + total) % total);
+    },
+    [total],
+  );
+
+  if (total === 0) return null;
+
+  return (
+    <div
+      className="cc-popup__gallery"
+      onKeyDown={(e) => {
+        if (e.key === "ArrowLeft") {
+          e.stopPropagation();
+          go(-1);
+        } else if (e.key === "ArrowRight") {
+          e.stopPropagation();
+          go(1);
+        }
+      }}
+      tabIndex={total > 1 ? 0 : -1}
+      role={total > 1 ? "group" : undefined}
+      aria-label={total > 1 ? `${name} photos` : undefined}
+    >
+      {/* Plain <img> (not next/image) — Leaflet renders the popup into a
+          portal outside React's tree, and next/image's layout
+          requirements don't play nicely inside the absolutely-positioned
+          popup wrapper. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        key={clamped}
+        src={photos[clamped]}
+        alt={
+          total > 1 ? `${name} — photo ${clamped + 1} of ${total}` : name
+        }
+        className="cc-popup__cover"
+        loading="lazy"
+      />
+
+      {total > 1 && (
+        <>
+          <button
+            type="button"
+            aria-label="Previous photo"
+            onClick={(e) => {
+              e.stopPropagation();
+              go(-1);
+            }}
+            className="cc-popup__nav cc-popup__nav--prev"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+              <path
+                d="M10 3L5 8l5 5"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            aria-label="Next photo"
+            onClick={(e) => {
+              e.stopPropagation();
+              go(1);
+            }}
+            className="cc-popup__nav cc-popup__nav--next"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+              <path
+                d="M6 3l5 5-5 5"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+            </svg>
+          </button>
+          <span className="cc-popup__counter" aria-hidden>
+            {clamped + 1} / {total}
+          </span>
+        </>
+      )}
+    </div>
   );
 }

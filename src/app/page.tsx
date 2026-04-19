@@ -30,8 +30,18 @@ const ABOUT_PHOTOS: Array<{ src: string; alt: string; caption?: string }> = [
   },
 ];
 
+type FeaturedCommunity = {
+  id: string;
+  name: string;
+  slug: string;
+  city: string | null;
+  state: string | null;
+  cover_photo_url: string | null;
+};
+
 async function loadCommunities(): Promise<{
   mapped: MapCommunity[];
+  featured: FeaturedCommunity[];
   total: number;
 }> {
   const supabase = await createClient();
@@ -44,31 +54,50 @@ async function loadCommunities(): Promise<{
         slug,
         community_type,
         cover_photo_path,
-        address:addresses ( city, state, latitude, longitude )
+        starred,
+        address:addresses ( city, state, latitude, longitude ),
+        photos:community_photos ( storage_path, display_order, created_at )
       `,
     )
     .order("name");
 
   if (error || !data) {
-    return { mapped: [], total: 0 };
+    return { mapped: [], featured: [], total: 0 };
   }
 
+  const publicUrl = (path: string) =>
+    supabase.storage.from("community-photos").getPublicUrl(path).data.publicUrl;
+
   const mapped: MapCommunity[] = [];
+  const featured: FeaturedCommunity[] = [];
   for (const c of data) {
     const addr = c.address;
+    // Bucket is public, so `getPublicUrl` is a pure string builder — no
+    // network round-trip per community.
+    const coverUrl = c.cover_photo_path ? publicUrl(c.cover_photo_path) : null;
+
+    // Photo gallery URLs for the map popup: cover first (if any), then
+    // gallery photos in the admin-curated order. Any photo whose storage
+    // path matches the cover is skipped so we don't duplicate the first
+    // slide.
+    const orderedPhotos = [...(c.photos ?? [])].sort((a, b) => {
+      if (a.display_order !== b.display_order) {
+        return a.display_order - b.display_order;
+      }
+      return a.created_at.localeCompare(b.created_at);
+    });
+    const photoUrls: string[] = [];
+    if (coverUrl) photoUrls.push(coverUrl);
+    for (const p of orderedPhotos) {
+      if (p.storage_path === c.cover_photo_path) continue;
+      photoUrls.push(publicUrl(p.storage_path));
+    }
+
     if (
       addr &&
       typeof addr.latitude === "number" &&
       typeof addr.longitude === "number"
     ) {
-      // Bucket is public, so `getPublicUrl` is a pure string builder — no
-      // network round-trip per community.
-      const coverUrl = c.cover_photo_path
-        ? supabase.storage
-            .from("community-photos")
-            .getPublicUrl(c.cover_photo_path).data.publicUrl
-        : null;
-
       mapped.push({
         id: c.id,
         name: c.name,
@@ -78,16 +107,27 @@ async function loadCommunities(): Promise<{
         state: addr.state,
         latitude: addr.latitude,
         longitude: addr.longitude,
+        photo_urls: photoUrls,
+      });
+    }
+
+    if (c.starred) {
+      featured.push({
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        city: addr?.city ?? null,
+        state: addr?.state ?? null,
         cover_photo_url: coverUrl,
       });
     }
   }
 
-  return { mapped, total: data.length };
+  return { mapped, featured, total: data.length };
 }
 
 export default async function HomePage() {
-  const { mapped, total } = await loadCommunities();
+  const { mapped, featured, total } = await loadCommunities();
 
   return (
     <>
@@ -156,12 +196,78 @@ export default async function HomePage() {
 
       <HomeMapSection communities={mapped} totalCount={total} />
 
+      {featured.length > 0 && (
+        <section className="border-t border-border bg-background px-6 py-16 sm:py-24">
+          <div className="mx-auto w-full max-w-6xl">
+            <div className="mb-8">
+              <p className="text-xs uppercase tracking-[4px] text-muted">
+                Featured
+              </p>
+              <h2 className="mt-2 font-serif text-3xl font-semibold sm:text-4xl">
+                A closer look
+              </h2>
+              <p className="mt-3 max-w-xl text-sm text-muted">
+                The best of Classic Communities
+              </p>
+            </div>
+
+            <ul
+              className={`grid gap-6 ${
+                featured.length === 1
+                  ? "grid-cols-1 sm:mx-auto sm:max-w-2xl"
+                  : featured.length === 2
+                  ? "grid-cols-1 sm:grid-cols-2"
+                  : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+              }`}
+            >
+              {featured.map((c) => (
+                <li key={c.id} className="h-full">
+                  <Link
+                    href={`/communities/${c.slug}`}
+                    className="group flex h-full flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-[0_12px_40px_-20px_rgba(15,23,42,0.25)] ring-1 ring-black/5 transition hover:border-primary hover:shadow-[0_18px_60px_-20px_rgba(15,23,42,0.35)]"
+                  >
+                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface">
+                      {c.cover_photo_url ? (
+                        <Image
+                          src={c.cover_photo_url}
+                          alt=""
+                          fill
+                          // Max container is max-w-6xl (≈1152px). At lg we
+                          // show up to 3 columns (~380px each), 2 columns at
+                          // sm, 1 column below.
+                          sizes="(min-width: 1024px) 380px, (min-width: 640px) 50vw, 100vw"
+                          className="object-cover transition duration-500 group-hover:scale-[1.03]"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-[3px] text-muted">
+                          No photo
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-1 flex-col p-5">
+                      <h3 className="font-serif text-xl font-semibold group-hover:text-primary">
+                        {c.name}
+                      </h3>
+                      {(c.city || c.state) && (
+                        <p className="mt-1 text-sm text-muted">
+                          {[c.city, c.state].filter(Boolean).join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
+
       <section
         id="about"
         className="border-t border-border bg-surface px-6 py-20 sm:py-28"
       >
         <div className="mx-auto w-full max-w-5xl">
-          <div className="mx-auto max-w-2xl text-center">
+          <div className="mx-auto max-w-3xl text-center">
             <p className="text-xs uppercase tracking-[4px] text-muted">
               About this project
             </p>
@@ -179,6 +285,9 @@ export default async function HomePage() {
                 on the thousands of families who call a Classic community home.
               </p>
             </div>
+            <p className="mt-8 font-serif text-lg italic text-foreground/80">
+              — Jacob Halbert
+            </p>
           </div>
 
           <AboutGallery photos={ABOUT_PHOTOS} />

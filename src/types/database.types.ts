@@ -73,6 +73,7 @@ export type Database = {
           num_homes: number | null
           site_plan_path: string | null
           slug: string
+          starred: boolean
           updated_at: string
         }
         Insert: {
@@ -88,6 +89,7 @@ export type Database = {
           num_homes?: number | null
           site_plan_path?: string | null
           slug: string
+          starred?: boolean
           updated_at?: string
         }
         Update: {
@@ -103,6 +105,7 @@ export type Database = {
           num_homes?: number | null
           site_plan_path?: string | null
           slug?: string
+          starred?: boolean
           updated_at?: string
         }
         Relationships: [

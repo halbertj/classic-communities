@@ -155,11 +155,10 @@ export default async function CommunityDetailPage({ params }: PageProps) {
           state: addr.state,
           latitude: addr.latitude,
           longitude: addr.longitude,
-          cover_photo_url: community.cover_photo_path
-            ? supabase.storage
-                .from("community-photos")
-                .getPublicUrl(community.cover_photo_path).data.publicUrl
-            : null,
+          // Detail-page map uses the compact "city" popup (no imagery),
+          // but we still populate photo_urls so the same component shape
+          // holds for any future variant change.
+          photo_urls: galleryPhotos.map((p) => p.url),
         }
       : null;
 
@@ -251,7 +250,7 @@ export default async function CommunityDetailPage({ params }: PageProps) {
                 : " a community"}
               {locationLine ? ` in ${locationLine}` : ""}
               {years ? `, built ${years}` : ""}. Designed and developed by
-              Classic Communities, it carries the same craft, siting, and
+              Classic Communities, it carries the same craft, care, and
               neighborhood-first planning that defines the Classic portfolio.
             </p>
             <p className="text-muted">

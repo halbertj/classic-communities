@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import type { MapCommunity } from "@/components/CommunitiesMap";
@@ -38,7 +39,8 @@ export default async function CommunitiesPage() {
         date_started,
         date_completed,
         cover_photo_path,
-        address:addresses ( city, state, latitude, longitude )
+        address:addresses ( city, state, latitude, longitude ),
+        photos:community_photos ( storage_path, display_order, created_at )
       `,
     )
     .order("name");
@@ -50,6 +52,34 @@ export default async function CommunitiesPage() {
       ? supabase.storage.from("community-photos").getPublicUrl(path).data
           .publicUrl
       : null;
+
+  // Build the ordered popup gallery: cover first, then admin-ordered
+  // gallery photos, with the cover de-duped if it also lives in the
+  // photos table. Same logic as on the home page.
+  const photoUrlsFor = (c: {
+    cover_photo_path: string | null;
+    photos: Array<{
+      storage_path: string;
+      display_order: number;
+      created_at: string;
+    }> | null;
+  }): string[] => {
+    const urls: string[] = [];
+    const cover = coverUrlFor(c.cover_photo_path);
+    if (cover) urls.push(cover);
+    const ordered = [...(c.photos ?? [])].sort((a, b) => {
+      if (a.display_order !== b.display_order) {
+        return a.display_order - b.display_order;
+      }
+      return a.created_at.localeCompare(b.created_at);
+    });
+    for (const p of ordered) {
+      if (p.storage_path === c.cover_photo_path) continue;
+      const url = coverUrlFor(p.storage_path);
+      if (url) urls.push(url);
+    }
+    return urls;
+  };
 
   // Build the subset of communities that have coordinates so the map can
   // plot them. Same shape as on the home page.
@@ -69,7 +99,7 @@ export default async function CommunitiesPage() {
       state: c.address!.state,
       latitude: c.address!.latitude as number,
       longitude: c.address!.longitude as number,
-      cover_photo_url: coverUrlFor(c.cover_photo_path),
+      photo_urls: photoUrlsFor(c),
     }));
 
   return (
@@ -133,12 +163,15 @@ export default async function CommunitiesPage() {
                     >
                       <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface">
                         {coverUrl ? (
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          <img
+                          <Image
                             src={coverUrl}
                             alt=""
-                            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-                            loading="lazy"
+                            fill
+                            // 3-up at ≥lg (max-w-5xl = 1024px → ~320px each),
+                            // 2-up at ≥sm, 1-up below. Matches the grid in the
+                            // surrounding <ul>.
+                            sizes="(min-width: 1024px) 320px, (min-width: 640px) 50vw, 100vw"
+                            className="object-cover transition duration-500 group-hover:scale-[1.03]"
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-[3px] text-muted">
