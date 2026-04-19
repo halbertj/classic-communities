@@ -93,6 +93,14 @@ export function EditCommunityDrawer({
   const [sitePlanError, setSitePlanError] = useState<string | null>(null);
   const [sitePlanDragging, setSitePlanDragging] = useState(false);
 
+  // Logo state. Logos live in their own `community-logos` bucket so we
+  // can later lock down allowed MIME types without impacting the gallery.
+  // Same direct-to-Storage upload pattern as cover/site plan.
+  const [logoPath, setLogoPath] = useState<string | null>(community.logo_path);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [logoDragging, setLogoDragging] = useState(false);
+
   // Gallery photos (the `community_photos` table — separate from the single
   // `cover_photo_path` managed above). Loaded lazily when the drawer opens.
   type PhotoQueueItem = { id: string; name: string };
@@ -167,15 +175,17 @@ export function EditCommunityDrawer({
 
   const sitePlanIsPdf = (sitePlanPath ?? "").toLowerCase().endsWith(".pdf");
 
+  const logoPreviewUrl = useMemo(() => {
+    if (!logoPath) return null;
+    const { data } = supabase.storage
+      .from("community-logos")
+      .getPublicUrl(logoPath);
+    return data.publicUrl;
+  }, [logoPath, supabase]);
+
   async function uploadCoverFile(file: File) {
     if (!file.type.startsWith("image/")) {
       setUploadError("Cover must be an image file.");
-      return;
-    }
-
-    const tooBig = file.size > 10 * 1024 * 1024; // 10 MB cap
-    if (tooBig) {
-      setUploadError("Photo is larger than 10MB — try a smaller file.");
       return;
     }
 
@@ -326,6 +336,80 @@ export function EditCommunityDrawer({
     const file = event.dataTransfer.files?.[0];
     if (!file) return;
     await uploadSitePlanFile(file);
+  }
+
+  // --- Logo upload ----------------------------------------------------
+
+  async function uploadLogoFile(file: File) {
+    // Accept common raster formats and SVG. SVGs have text/* or
+    // image/svg+xml on various browsers, so we allow both and also fall
+    // back to the file extension.
+    const isImage = file.type.startsWith("image/");
+    const isSvg =
+      file.type === "image/svg+xml" ||
+      file.name.toLowerCase().endsWith(".svg");
+    if (!isImage && !isSvg) {
+      setLogoError("Logo must be an image (PNG, JPG, SVG, …).");
+      return;
+    }
+
+    setLogoUploading(true);
+    setLogoError(null);
+    try {
+      const extFromName = file.name.split(".").pop()?.toLowerCase();
+      const extFromType = file.type.split("/")[1]?.toLowerCase();
+      const ext = (extFromName || extFromType || "png").replace(
+        /[^a-z0-9]/g,
+        "",
+      );
+      const path = `${community.id}/${Date.now()}.${ext}`;
+
+      const { error } = await supabase.storage
+        .from("community-logos")
+        .upload(path, file, {
+          cacheControl: "31536000",
+          contentType: file.type || undefined,
+          upsert: false,
+        });
+      if (error) throw error;
+      setLogoPath(path);
+    } catch (err) {
+      setLogoError(
+        err instanceof Error ? err.message : "Upload failed. Try again.",
+      );
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
+  async function handleLogoChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    await uploadLogoFile(file);
+  }
+
+  function handleLogoDragOver(event: React.DragEvent<HTMLDivElement>) {
+    if (logoUploading) return;
+    if (!event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    if (!logoDragging) setLogoDragging(true);
+  }
+
+  function handleLogoDragLeave(event: React.DragEvent<HTMLDivElement>) {
+    const next = event.relatedTarget as Node | null;
+    if (next && event.currentTarget.contains(next)) return;
+    setLogoDragging(false);
+  }
+
+  async function handleLogoDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setLogoDragging(false);
+    if (logoUploading) return;
+    const file = event.dataTransfer.files?.[0];
+    if (!file) return;
+    await uploadLogoFile(file);
   }
 
   // --- Gallery photos -------------------------------------------------
@@ -634,27 +718,67 @@ export function EditCommunityDrawer({
             </p>
             <h2 className="truncate text-lg font-semibold">{community.name}</h2>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="rounded-full p-2 text-muted hover:bg-surface hover:text-foreground"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 20 20"
-              fill="none"
-              aria-hidden
+          <div className="flex items-center gap-1">
+            <a
+              href={`/communities/${community.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open public page in new tab"
+              title="Open public page"
+              className="rounded-full p-2 text-muted hover:bg-surface hover:text-foreground"
             >
-              <path
-                d="M5 5l10 10M15 5L5 15"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+                aria-hidden
+              >
+                <path
+                  d="M11 3h6v6"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M17 3l-8 8"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M15 11v4a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h4"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </a>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="rounded-full p-2 text-muted hover:bg-surface hover:text-foreground"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+                aria-hidden
+              >
+                <path
+                  d="M5 5l10 10M15 5L5 15"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          </div>
         </header>
 
         <form
@@ -671,6 +795,11 @@ export function EditCommunityDrawer({
             type="hidden"
             name="site_plan_path"
             value={sitePlanPath ?? ""}
+          />
+          <input
+            type="hidden"
+            name="logo_path"
+            value={logoPath ?? ""}
           />
 
           <section className="flex flex-col gap-3">
@@ -884,6 +1013,101 @@ export function EditCommunityDrawer({
               {sitePlanError && (
                 <span className="text-xs text-red-600" role="alert">
                   {sitePlanError}
+                </span>
+              )}
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+              Logo
+            </h3>
+            <div
+              onDragEnter={handleLogoDragOver}
+              onDragOver={handleLogoDragOver}
+              onDragLeave={handleLogoDragLeave}
+              onDrop={handleLogoDrop}
+              className={`relative overflow-hidden rounded-lg border bg-surface transition-colors ${
+                logoDragging
+                  ? "border-primary ring-2 ring-primary/40"
+                  : "border-border"
+              }`}
+            >
+              {logoPreviewUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={logoPreviewUrl}
+                  alt=""
+                  className="h-40 w-full object-contain p-4"
+                />
+              ) : (
+                <div className="flex h-40 w-full flex-col items-center justify-center gap-1 px-4 text-center text-sm text-muted">
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden
+                    className="text-muted"
+                  >
+                    <path
+                      d="M12 16V4m0 0l-4 4m4-4l4 4"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span>No logo yet</span>
+                  <span className="text-xs text-muted">
+                    Drag an image here, or use the button below.
+                  </span>
+                </div>
+              )}
+              {logoDragging && !logoUploading && (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 flex items-center justify-center bg-primary/10 text-sm font-medium text-primary"
+                >
+                  Drop to upload
+                </div>
+              )}
+              {logoUploading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-sm text-white">
+                  Uploading…
+                </div>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <label className="cursor-pointer rounded border border-border px-3 py-1.5 hover:bg-surface">
+                <input
+                  type="file"
+                  accept="image/*,.svg"
+                  className="hidden"
+                  onChange={handleLogoChange}
+                  disabled={logoUploading}
+                />
+                {logoPath ? "Replace logo" : "Upload logo"}
+              </label>
+              {logoPath && (
+                <button
+                  type="button"
+                  onClick={() => setLogoPath(null)}
+                  className="text-muted hover:text-red-600"
+                >
+                  Remove
+                </button>
+              )}
+              <span className="text-xs text-muted">PNG, JPG, or SVG.</span>
+              {logoError && (
+                <span className="text-xs text-red-600" role="alert">
+                  {logoError}
                 </span>
               )}
             </div>
@@ -1137,6 +1361,22 @@ export function EditCommunityDrawer({
                   type="date"
                   name="date_completed"
                   defaultValue={community.date_completed ?? ""}
+                  className={inputCls}
+                />
+              </Field>
+
+              <Field
+                label="Number of homes"
+                error={fieldErrors.num_homes}
+                hint="Total homes built in this community."
+              >
+                <input
+                  type="number"
+                  name="num_homes"
+                  min={0}
+                  step={1}
+                  inputMode="numeric"
+                  defaultValue={community.num_homes ?? ""}
                   className={inputCls}
                 />
               </Field>

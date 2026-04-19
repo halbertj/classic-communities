@@ -19,8 +19,10 @@ export default async function AdminCommunitiesPage() {
         community_type,
         date_started,
         date_completed,
+        num_homes,
         cover_photo_path,
         site_plan_path,
+        logo_path,
         created_at,
         address:addresses (
           id,
@@ -44,8 +46,10 @@ export default async function AdminCommunitiesPage() {
     community_type: row.community_type,
     date_started: row.date_started,
     date_completed: row.date_completed,
+    num_homes: row.num_homes,
     cover_photo_path: row.cover_photo_path,
     site_plan_path: row.site_plan_path,
+    logo_path: row.logo_path,
     created_at: row.created_at,
     address: row.address
       ? {

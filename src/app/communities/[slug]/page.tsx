@@ -59,8 +59,10 @@ export default async function CommunityDetailPage({ params }: PageProps) {
         community_type,
         cover_photo_path,
         site_plan_path,
+        logo_path,
         date_started,
         date_completed,
+        num_homes,
         address:addresses ( city, state, line1, line2, postal_code, latitude, longitude ),
         photos:community_photos (
           id,
@@ -166,6 +168,11 @@ export default async function CommunityDetailPage({ params }: PageProps) {
         .from("community-site-plans")
         .getPublicUrl(community.site_plan_path).data.publicUrl
     : null;
+  const logoUrl = community.logo_path
+    ? supabase.storage
+        .from("community-logos")
+        .getPublicUrl(community.logo_path).data.publicUrl
+    : null;
   const sitePlanIsPdf =
     community.site_plan_path?.toLowerCase().endsWith(".pdf") ?? false;
 
@@ -196,6 +203,7 @@ export default async function CommunityDetailPage({ params }: PageProps) {
         <CommunityGallery
           photos={galleryPhotos}
           communityName={community.name}
+          logoUrl={logoUrl}
         />
 
         {/* Overview / description */}
@@ -216,6 +224,17 @@ export default async function CommunityDetailPage({ params }: PageProps) {
               <span aria-hidden>·</span>
             )}
             {years && <span>Built {years}</span>}
+            {typeof community.num_homes === "number" && (
+              <>
+                {(typeLabel || locationLine || years) && (
+                  <span aria-hidden>·</span>
+                )}
+                <span>
+                  {community.num_homes}{" "}
+                  {community.num_homes === 1 ? "home" : "homes"}
+                </span>
+              </>
+            )}
           </div>
 
           <div className="mt-8 h-px w-full bg-border" />
@@ -258,18 +277,17 @@ export default async function CommunityDetailPage({ params }: PageProps) {
           </section>
         )}
 
-        {/* Site plan */}
-        <section className="mt-16 border-t border-border pt-12">
-          <div className="mb-6 flex items-end justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[4px] text-muted">
-                Layout
-              </p>
-              <h2 className="mt-2 font-serif text-3xl font-semibold">
-                Site plan
-              </h2>
-            </div>
-            {sitePlanUrl && (
+        {sitePlanUrl && (
+          <section className="mt-16 border-t border-border pt-12">
+            <div className="mb-6 flex items-end justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[4px] text-muted">
+                  Layout
+                </p>
+                <h2 className="mt-2 font-serif text-3xl font-semibold">
+                  Site plan
+                </h2>
+              </div>
               <a
                 href={sitePlanUrl}
                 className="inline-flex items-center gap-1 text-xs font-medium text-muted transition hover:text-foreground"
@@ -291,11 +309,9 @@ export default async function CommunityDetailPage({ params }: PageProps) {
                   />
                 </svg>
               </a>
-            )}
-          </div>
+            </div>
 
-          {sitePlanUrl ? (
-            sitePlanIsPdf ? (
+            {sitePlanIsPdf ? (
               <div className="overflow-hidden rounded-xl border border-border bg-surface">
                 <iframe
                   src={sitePlanUrl}
@@ -315,13 +331,9 @@ export default async function CommunityDetailPage({ params }: PageProps) {
                   className="h-full max-h-[720px] w-full object-contain transition-transform duration-500 ease-out group-hover:scale-[1.02]"
                 />
               </a>
-            )
-          ) : (
-            <div className="flex h-[320px] items-center justify-center rounded-xl border border-dashed border-border bg-surface/40 px-6 text-center text-sm text-muted">
-              No site plan uploaded yet.
-            </div>
-          )}
-        </section>
+            )}
+          </section>
+        )}
 
         {/* Homes in this community — placeholder for now */}
         <section className="mt-16 border-t border-border pt-12">

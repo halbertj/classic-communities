@@ -48,6 +48,19 @@ function parseOptionalCoord(
   return { value: n };
 }
 
+function parseOptionalNonNegInt(
+  formData: FormData,
+  key: string,
+): { value: number | null; error?: string } {
+  const v = str(formData, key);
+  if (!v) return { value: null };
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0) {
+    return { value: null, error: "Must be a non-negative whole number." };
+  }
+  return { value: n };
+}
+
 export async function updateCommunity(
   _prev: UpdateCommunityState,
   formData: FormData,
@@ -105,6 +118,9 @@ export async function updateCommunity(
   const lng = parseOptionalCoord(formData, "longitude", -180, 180);
   if (lng.error) fieldErrors.longitude = lng.error;
 
+  const numHomes = parseOptionalNonNegInt(formData, "num_homes");
+  if (numHomes.error) fieldErrors.num_homes = numHomes.error;
+
   // `cover_photo_path` is a hidden field set by the drawer after a direct
   // upload to Supabase Storage; "" means "remove the photo".
   const newCoverPath = optionalStr(formData, "cover_photo_path");
@@ -112,6 +128,10 @@ export async function updateCommunity(
   // Same pattern as cover_photo_path, but against the
   // `community-site-plans` bucket.
   const newSitePlanPath = optionalStr(formData, "site_plan_path");
+
+  // Same pattern as the other *_path fields, but against the
+  // `community-logos` bucket.
+  const newLogoPath = optionalStr(formData, "logo_path");
 
   if (Object.keys(fieldErrors).length > 0) {
     return {
@@ -125,7 +145,7 @@ export async function updateCommunity(
 
   const { data: existing, error: fetchErr } = await supabase
     .from("communities")
-    .select("id, slug, address_id, cover_photo_path, site_plan_path")
+    .select("id, slug, address_id, cover_photo_path, site_plan_path, logo_path")
     .eq("id", id)
     .maybeSingle();
 
@@ -182,8 +202,10 @@ export async function updateCommunity(
       community_type: communityType,
       date_started: dateStarted,
       date_completed: dateCompleted,
+      num_homes: numHomes.value,
       cover_photo_path: newCoverPath,
       site_plan_path: newSitePlanPath,
+      logo_path: newLogoPath,
       address_id: addressId,
     })
     .eq("id", id);
@@ -212,6 +234,11 @@ export async function updateCommunity(
     await supabase.storage
       .from("community-site-plans")
       .remove([oldSitePlanPath]);
+  }
+
+  const oldLogoPath = existing.logo_path;
+  if (oldLogoPath && oldLogoPath !== newLogoPath) {
+    await supabase.storage.from("community-logos").remove([oldLogoPath]);
   }
 
   revalidatePath("/admin/communities");

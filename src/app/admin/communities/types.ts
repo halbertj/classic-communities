@@ -14,8 +14,10 @@ export type CommunityWithAddress = {
   community_type: CommunityType | null;
   date_started: string | null;
   date_completed: string | null;
+  num_homes: number | null;
   cover_photo_path: string | null;
   site_plan_path: string | null;
+  logo_path: string | null;
   created_at: string;
   address: {
     id: string;

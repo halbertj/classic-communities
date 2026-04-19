@@ -107,6 +107,21 @@ export function CommunityForm() {
         <Field label="Date completed" error={fieldErrors.date_completed}>
           <input type="date" name="date_completed" className={inputCls} />
         </Field>
+
+        <Field
+          label="Number of homes"
+          error={fieldErrors.num_homes}
+          hint="Total homes built in this community."
+        >
+          <input
+            name="num_homes"
+            type="number"
+            min={0}
+            step={1}
+            inputMode="numeric"
+            className={inputCls}
+          />
+        </Field>
       </section>
 
       <section>

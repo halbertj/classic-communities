@@ -53,6 +53,19 @@ function parseOptionalCoord(
   return { value: n };
 }
 
+function parseOptionalNonNegInt(
+  formData: FormData,
+  key: string,
+): { value: number | null; error?: string } {
+  const v = str(formData, key);
+  if (!v) return { value: null };
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0) {
+    return { value: null, error: "Must be a non-negative whole number." };
+  }
+  return { value: n };
+}
+
 export async function createCommunity(
   _prev: CreateCommunityState,
   formData: FormData,
@@ -105,6 +118,9 @@ export async function createCommunity(
   const lng = parseOptionalCoord(formData, "longitude", -180, 180);
   if (lng.error) fieldErrors.longitude = lng.error;
 
+  const numHomes = parseOptionalNonNegInt(formData, "num_homes");
+  if (numHomes.error) fieldErrors.num_homes = numHomes.error;
+
   if (Object.keys(fieldErrors).length > 0) {
     return {
       status: "error",
@@ -145,6 +161,7 @@ export async function createCommunity(
     community_type: communityType,
     date_started: dateStarted,
     date_completed: dateCompleted,
+    num_homes: numHomes.value,
     address_id: address.id,
   });
 

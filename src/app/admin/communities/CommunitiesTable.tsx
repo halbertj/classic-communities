@@ -14,10 +14,9 @@ const TYPE_LABEL: Record<CommunityType, string> = {
   mixed: "Mixed",
 };
 
-function formatDate(value: string | null): string {
+function formatYear(value: string | null): string {
   if (!value) return "—";
-  const [y, m, d] = value.split("-");
-  return `${m}/${d}/${y}`;
+  return value.slice(0, 4);
 }
 
 export function CommunitiesTable({
@@ -52,8 +51,9 @@ export function CommunitiesTable({
             <col style={{ width: 84 }} />
             <col />
             <col style={{ width: 140 }} />
-            <col style={{ width: 110 }} />
-            <col style={{ width: 110 }} />
+            <col style={{ width: 80 }} />
+            <col style={{ width: 80 }} />
+            <col style={{ width: 90 }} />
             <col style={{ width: 180 }} />
           </colgroup>
           <thead className="bg-surface text-left text-xs uppercase tracking-wide text-muted">
@@ -63,6 +63,7 @@ export function CommunitiesTable({
               <th className="px-4 py-3 font-medium">Type</th>
               <th className="px-4 py-3 font-medium">Started</th>
               <th className="px-4 py-3 font-medium">Completed</th>
+              <th className="px-4 py-3 font-medium">Homes</th>
               <th className="px-4 py-3 font-medium">Location</th>
             </tr>
           </thead>
@@ -100,11 +101,14 @@ export function CommunitiesTable({
                 <td className="px-4 py-3 align-middle">
                   {c.community_type ? TYPE_LABEL[c.community_type] : "—"}
                 </td>
-                <td className="px-4 py-3 align-middle">
-                  {formatDate(c.date_started)}
+                <td className="px-4 py-3 align-middle tabular-nums">
+                  {formatYear(c.date_started)}
                 </td>
-                <td className="px-4 py-3 align-middle">
-                  {formatDate(c.date_completed)}
+                <td className="px-4 py-3 align-middle tabular-nums">
+                  {formatYear(c.date_completed)}
+                </td>
+                <td className="px-4 py-3 align-middle tabular-nums">
+                  {typeof c.num_homes === "number" ? c.num_homes : "—"}
                 </td>
                 <td className="px-4 py-3 align-middle text-muted">
                   {c.address ? `${c.address.city}, ${c.address.state}` : "—"}
@@ -161,10 +165,6 @@ function CoverCell({
 
     if (!file.type.startsWith("image/")) {
       setError("Image files only.");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setError("Over 10MB.");
       return;
     }
 

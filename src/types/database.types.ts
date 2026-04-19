@@ -68,7 +68,9 @@ export type Database = {
           date_completed: string | null
           date_started: string | null
           id: string
+          logo_path: string | null
           name: string
+          num_homes: number | null
           site_plan_path: string | null
           slug: string
           updated_at: string
@@ -81,7 +83,9 @@ export type Database = {
           date_completed?: string | null
           date_started?: string | null
           id?: string
+          logo_path?: string | null
           name: string
+          num_homes?: number | null
           site_plan_path?: string | null
           slug: string
           updated_at?: string
@@ -94,7 +98,9 @@ export type Database = {
           date_completed?: string | null
           date_started?: string | null
           id?: string
+          logo_path?: string | null
           name?: string
+          num_homes?: number | null
           site_plan_path?: string | null
           slug?: string
           updated_at?: string

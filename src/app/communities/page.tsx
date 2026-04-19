@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import type { MapCommunity } from "@/components/CommunitiesMap";
+import { HomeMapSection } from "@/components/HomeMapSection";
 import { SiteHeader } from "@/components/SiteHeader";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database.types";
@@ -36,7 +38,7 @@ export default async function CommunitiesPage() {
         date_started,
         date_completed,
         cover_photo_path,
-        address:addresses ( city, state )
+        address:addresses ( city, state, latitude, longitude )
       `,
     )
     .order("name");
@@ -49,21 +51,58 @@ export default async function CommunitiesPage() {
           .publicUrl
       : null;
 
+  // Build the subset of communities that have coordinates so the map can
+  // plot them. Same shape as on the home page.
+  const mappedCommunities: MapCommunity[] = (communities ?? [])
+    .filter(
+      (c) =>
+        c.address &&
+        typeof c.address.latitude === "number" &&
+        typeof c.address.longitude === "number",
+    )
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      slug: c.slug,
+      community_type: c.community_type,
+      city: c.address!.city,
+      state: c.address!.state,
+      latitude: c.address!.latitude as number,
+      longitude: c.address!.longitude as number,
+      cover_photo_url: coverUrlFor(c.cover_photo_path),
+    }));
+
   return (
     <>
       <SiteHeader logo />
-      <main className="flex-1 bg-background px-6 py-16">
-        <div className="mx-auto w-full max-w-5xl">
-          <header className="mb-10">
+      <main className="flex-1 bg-background">
+        <div className="mx-auto w-full max-w-5xl px-6 pt-16">
+          <header>
             <p className="text-xs uppercase tracking-[4px] text-muted">
               Our work
             </p>
-            <h1 className="mt-2 text-4xl font-semibold">Communities</h1>
+            <h1 className="mt-2 font-serif text-4xl font-semibold sm:text-5xl">
+              Communities
+            </h1>
             <p className="mt-3 max-w-2xl text-muted">
               A portfolio of Classic Communities developments.
             </p>
           </header>
+        </div>
 
+        {mappedCommunities.length > 0 && (
+          <HomeMapSection
+            communities={mappedCommunities}
+            totalCount={mappedCommunities.length}
+            showHeading={false}
+            showCta={false}
+            className="py-12"
+            maxWidthClass="max-w-5xl px-6"
+            mapHeightClass="h-[360px]"
+          />
+        )}
+
+        <div className="mx-auto w-full max-w-5xl px-6 pb-16">
           {error ? (
             <p className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               Couldn&apos;t load communities: {error.message}
@@ -87,10 +126,10 @@ export default async function CommunitiesPage() {
                 const coverUrl = coverUrlFor(c.cover_photo_path);
 
                 return (
-                  <li key={c.id}>
+                  <li key={c.id} className="h-full">
                     <Link
                       href={`/communities/${c.slug}`}
-                      className="group block overflow-hidden rounded-lg border border-border bg-surface transition hover:border-primary"
+                      className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-surface transition hover:border-primary"
                     >
                       <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface">
                         {coverUrl ? (

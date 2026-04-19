@@ -66,7 +66,7 @@ Supabase CLI (installed as a devDependency) applies them to your project with
 | --- | --- |
 | `public.profiles` | One row per `auth.users` entry. Holds `role` (`'user'` or `'admin'`). Auto-created on signup via trigger. |
 | `public.addresses` | Street components (`line1`, `line2`, `city`, `state`, `postal_code`, `country`, `formatted`) plus `latitude` and `longitude` for map display. |
-| `public.communities` | `name`, unique `slug`, `date_started` / `date_completed`, `cover_photo_path`, `community_type` (enum), FK → `addresses`. |
+| `public.communities` | `name`, unique `slug`, `date_started` / `date_completed`, `num_homes` (total homes built, nullable non-negative integer), `cover_photo_path`, `site_plan_path`, `logo_path`, `community_type` (enum), FK → `addresses`. |
 | `public.community_photos` | One row per photo attached to a community. Holds `storage_path`, `display_order`, `caption`, `alt_text`, `uploaded_by` (FK → `profiles`). FK → `communities` cascades on delete; an after-delete trigger removes the matching object from the `community-photos` storage bucket. |
 
 ### Enums

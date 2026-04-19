@@ -13,10 +13,11 @@ export type GalleryPhoto = {
  *
  * Layout
  *   - Mobile: a single hero image with a "1 / N" counter.
- *   - ≥sm:   a 2-column grid — the first photo on the left at full height,
- *            and up to four smaller photos tiled 2×2 on the right. The corners
- *            of the outer edges are rounded so the whole thing reads as one
- *            rounded card.
+ *   - ≥sm with ≥5 photos: a 2-column grid — the first photo on the left at
+ *            full height, and four smaller photos tiled 2×2 on the right.
+ *   - ≥sm with <5 photos: a simpler 2-up split — hero on the left, one
+ *            companion photo on the right at full height — so we never show
+ *            awkward empty tiles.
  *
  * A "Show all photos" pill sits bottom-right over the grid. Clicking any photo
  * (or the pill) opens a full-screen lightbox with keyboard + click navigation.
@@ -24,9 +25,16 @@ export type GalleryPhoto = {
 export function CommunityGallery({
   photos,
   communityName,
+  logoUrl,
 }: {
   photos: GalleryPhoto[];
   communityName: string;
+  /**
+   * Optional community logo. When present, it's rendered as a small chip
+   * anchored to the top-left of the hero photo — a tasteful piece of
+   * branding that reads clearly over any image.
+   */
+  logoUrl?: string | null;
 }) {
   const total = photos.length;
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -34,9 +42,13 @@ export function CommunityGallery({
   const openAt = useCallback((index: number) => setLightboxIndex(index), []);
   const close = useCallback(() => setLightboxIndex(null), []);
 
-  // The grid shows the first 5 photos at most; extras are reachable via the
-  // "Show all photos" pill → lightbox.
-  const tiles = useMemo(() => photos.slice(0, 5), [photos]);
+  // When there are fewer than 5 photos we collapse to a 2-up preview so the
+  // grid never renders empty cells. Otherwise we show the full 5-tile layout.
+  const useCompactLayout = total < 5;
+  const tiles = useMemo(
+    () => photos.slice(0, useCompactLayout ? 2 : 5),
+    [photos, useCompactLayout],
+  );
 
   if (total === 0) {
     return (
@@ -45,6 +57,20 @@ export function CommunityGallery({
       </div>
     );
   }
+
+  const logoOverlay = logoUrl ? (
+    /* `pointer-events-none` so the chip doesn't block clicks into the
+       underlying tile (which opens the lightbox). `rounded-xl` + white
+       background + soft shadow = reads over any photo, light or dark. */
+    <div className="pointer-events-none absolute left-4 top-4 z-10 flex items-center rounded-2xl bg-white/95 px-5 py-3 shadow-[0_4px_16px_rgba(15,23,42,0.22)] ring-1 ring-black/5 backdrop-blur sm:left-5 sm:top-5 sm:px-6 sm:py-4">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={logoUrl}
+        alt={`${communityName} logo`}
+        className="h-12 w-auto max-w-[200px] object-contain sm:h-14 sm:max-w-[260px]"
+      />
+    </div>
+  ) : null;
 
   return (
     <>
@@ -62,6 +88,7 @@ export function CommunityGallery({
           className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
+        {logoOverlay}
         <span className="absolute bottom-3 right-3 rounded-full bg-black/60 px-3 py-1 text-[11px] font-medium text-white backdrop-blur">
           1 / {total}
         </span>
@@ -69,43 +96,56 @@ export function CommunityGallery({
 
       {/* ---------------- Desktop: 2-up grid ---------------- */}
       <div className="relative hidden h-[420px] w-full overflow-hidden rounded-2xl sm:block md:h-[480px] lg:h-[520px]">
-        <div className="grid h-full w-full grid-cols-4 grid-rows-2 gap-2">
-          {/* Big hero photo — left half, full height */}
+        {logoOverlay}
+        {total === 1 ? (
+          // Single photo: render it full-width with no grid at all.
           <GalleryTile
             photo={tiles[0]}
-            className="col-span-2 row-span-2"
+            className="h-full w-full"
             onClick={() => openAt(0)}
           />
+        ) : useCompactLayout ? (
+          // Compact preview for communities with 2–4 photos: a simple
+          // 50/50 split, hero + one companion at full height.
+          <div className="grid h-full w-full grid-cols-2 gap-2">
+            <GalleryTile
+              photo={tiles[0]}
+              className="col-span-1"
+              onClick={() => openAt(0)}
+            />
+            <GalleryTile
+              photo={tiles[1]}
+              className="col-span-1"
+              onClick={() => openAt(1)}
+            />
+          </div>
+        ) : (
+          <div className="grid h-full w-full grid-cols-4 grid-rows-2 gap-2">
+            {/* Big hero photo — left half, full height */}
+            <GalleryTile
+              photo={tiles[0]}
+              className="col-span-2 row-span-2"
+              onClick={() => openAt(0)}
+            />
 
-          {/* Up to 4 smaller photos on the right (2×2). Empty cells fall back
-              to a soft surface color so the grid never looks broken.
-              Individual tile corners stay square; the outer rounded container
-              clips the four outside corners into a single rounded card. */}
-          {[1, 2, 3, 4].map((i) => {
-            const photo = tiles[i];
-            if (!photo) {
-              return (
-                <div
-                  key={i}
-                  className="col-span-1 row-span-1 bg-surface"
-                  aria-hidden
-                />
-              );
-            }
-            return (
+            {/* Four smaller photos on the right (2×2). Individual tile
+                corners stay square; the outer rounded container clips the
+                four outside corners into a single rounded card. */}
+            {[1, 2, 3, 4].map((i) => (
               <GalleryTile
-                key={photo.id}
-                photo={photo}
+                key={tiles[i].id}
+                photo={tiles[i]}
                 className="col-span-1 row-span-1"
                 onClick={() => openAt(i)}
               />
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
 
-        {/* "Show all photos" pill — only useful when there are more than the 5
-            we can fit in the grid, OR when we at least want an obvious way to
-            enlarge what's shown. Always render so the affordance is clear. */}
+        {/* "Show all photos" pill — hidden when there's only one photo since
+            there's nothing more to show. Always shown otherwise so the
+            affordance for the lightbox is clear. */}
+        {total > 1 && (
         <button
           type="button"
           onClick={() => openAt(0)}
@@ -127,6 +167,7 @@ export function CommunityGallery({
           </svg>
           Show all {total} photos
         </button>
+        )}
       </div>
 
       {lightboxIndex !== null && (
