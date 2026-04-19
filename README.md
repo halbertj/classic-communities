@@ -67,6 +67,7 @@ Supabase CLI (installed as a devDependency) applies them to your project with
 | `public.profiles` | One row per `auth.users` entry. Holds `role` (`'user'` or `'admin'`). Auto-created on signup via trigger. |
 | `public.addresses` | Street components (`line1`, `line2`, `city`, `state`, `postal_code`, `country`, `formatted`) plus `latitude` and `longitude` for map display. |
 | `public.communities` | `name`, unique `slug`, `date_started` / `date_completed`, `cover_photo_path`, `community_type` (enum), FK → `addresses`. |
+| `public.community_photos` | One row per photo attached to a community. Holds `storage_path`, `display_order`, `caption`, `alt_text`, `uploaded_by` (FK → `profiles`). FK → `communities` cascades on delete; an after-delete trigger removes the matching object from the `community-photos` storage bucket. |
 
 ### Enums
 
@@ -74,16 +75,18 @@ Supabase CLI (installed as a devDependency) applies them to your project with
 
 ### Row Level Security
 
-- `addresses` and `communities`: **public read**, **admin-only write**.
+- `addresses`, `communities`, and `community_photos`: **public read**, **admin-only write**.
 - `profiles`: owners can read/update their own; admins can read/update all.
 - Admin checks go through the `public.is_admin()` SECURITY DEFINER function
   (avoids the classic RLS-recursion footgun).
 
 ### Storage
 
-A public bucket `community-photos` holds cover photos. Policies on
+A public bucket `community-photos` holds both cover photos and the per-photo
+objects referenced by `community_photos.storage_path`. Policies on
 `storage.objects` mirror the table rules: anyone can read, only admins can
-write.
+write. Deleting a `community_photos` row (directly or via the cascade from
+`communities`) also deletes the backing storage object.
 
 ### Becoming an admin
 

@@ -1,0 +1,218 @@
+{
+  "460 Barbara Dr, Mechanicsburg, PA 17050-7200, United States": {
+    "lat": 40.245063273499,
+    "lng": -76.978286149284,
+    "source": "census",
+    "quality": "exact"
+  },
+  "Hamlin Ln, Harrisburg, PA 17110, United States": {
+    "lat": 40.335037,
+    "lng": -76.861559,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Countryside Dr, Harrisburg, PA 17110, United States": {
+    "lat": 40.324923,
+    "lng": -76.884233,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Augusta Dr, Mechanicsburg, PA 17050, United States": {
+    "lat": 40.264557,
+    "lng": -76.973784,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Yarmouth Ln, New Cumberland, PA 17070, United States": {
+    "lat": 40.219903,
+    "lng": -76.872865,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Westland Ct, Mechanicsburg, PA 17055, United States": {
+    "lat": 40.189169,
+    "lng": -76.95984,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Stable Ln, Mechanicsburg, PA 17050, United States": {
+    "lat": 40.281741,
+    "lng": -77.001826,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Balfour Dr, Mechanicsburg, PA 17050, United States": {
+    "lat": 40.259926,
+    "lng": -77.016281,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Chestnut Hollow Dr, Dillsburg, PA 17019, United States": {
+    "lat": 40.1088,
+    "lng": -77.030382,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Chestnut Way, New Cumberland, PA 17070, United States": {
+    "lat": 40.187543,
+    "lng": -76.857283,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Appalachian Ave, Carlisle, PA 17013, United States": {
+    "lat": 40.254149,
+    "lng": -77.196384,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Old Schoolhouse Ln, Mechanicsburg, PA 17055, United States": {
+    "lat": 40.193095,
+    "lng": -76.986781,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "24 Hamlet Cir, Mechanicsburg, PA 17050-5263, United States": {
+    "lat": 40.234569046571,
+    "lng": -77.03098117277,
+    "source": "census",
+    "quality": "exact"
+  },
+  "Redbud Ct, Harrisburg, PA 17110, United States": {
+    "lat": 40.335467,
+    "lng": -76.870371,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Vista Cir, Lemoyne, PA 17043, United States": {
+    "lat": 40.243273,
+    "lng": -76.910467,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Summit Way, Mechanicsburg, PA 17050, United States": {
+    "lat": 40.262423,
+    "lng": -76.998808,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Chatham Glenn Way, Harrisburg, PA 17111, United States": {
+    "lat": 40.272164,
+    "lng": -76.781046,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Galleon Dr, Mechanicsburg, PA 17050, United States": {
+    "lat": 40.252561,
+    "lng": -77.00099,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Vista Dr, Mechanicsburg, PA 17055, United States": {
+    "lat": 40.186745,
+    "lng": -76.96853,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Admirals Quay Dr, Mechanicsburg, PA 17050, United States": {
+    "lat": 40.221644,
+    "lng": -77.000345,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Thoroughbred Dr, York Haven, PA 17370, United States": {
+    "lat": 40.122716,
+    "lng": -76.763488,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "4 Europeana Cir, Camp Hill, PA 17011-1028, United States": {
+    "lat": 40.267549796638,
+    "lng": -76.944505957845,
+    "source": "census",
+    "quality": "exact"
+  },
+  "Silver Maple Dr, Harrisburg, PA 17112, United States": {
+    "lat": 40.351216,
+    "lng": -76.82036,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Weatherstone Dr, New Cumberland, PA 17070, United States": {
+    "lat": 40.208067,
+    "lng": -76.868657,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Redstone Ct, Mechanicsburg, PA 17050, United States": {
+    "lat": 40.257683,
+    "lng": -77.02191,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Mapleton Dr, Harrisburg, PA 17112, United States": {
+    "lat": 40.336651,
+    "lng": -76.737785,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Simon Ct, Mechanicsburg, PA 17050, United States": {
+    "lat": 40.242788,
+    "lng": -77.052937,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "400 Lake Dr, Mechanicsburg, PA 17055-7024, United States": {
+    "lat": 40.18407,
+    "lng": -76.96746,
+    "source": "mapbox",
+    "quality": "exact"
+  },
+  "Laura Lane, Harrisburg, PA 17110, United States": {
+    "lat": 40.328791,
+    "lng": -76.83626,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Birchwood Cir, Harrisburg, PA 17110, United States": {
+    "lat": 40.322238,
+    "lng": -76.851996,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Meadow Croft Cir, Mechanicsburg, PA 17055, United States": {
+    "lat": 40.172932,
+    "lng": -76.998541,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Cross Creek Dr, Mechanicsburg, PA 17050, United States": {
+    "lat": 40.261237,
+    "lng": -76.988883,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Creekside Dr, Lebanon, PA 17042, United States": {
+    "lat": 40.33067,
+    "lng": -76.445243,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "Autumn View Dr, Harrisburg, PA 17112, United States": {
+    "lat": 40.342145,
+    "lng": -76.784196,
+    "source": "mapbox",
+    "quality": "street"
+  },
+  "6047 Pinedale Ct, Harrisburg, PA 17111, United States": {
+    "lat": 40.264726090113,
+    "lng": -76.783137877143,
+    "source": "census",
+    "quality": "exact"
+  },
+  "Montrose Cir, Mechanicsburg, PA 17050, United States": {
+    "lat": 40.268912,
+    "lng": -76.992527,
+    "source": "mapbox",
+    "quality": "street"
+  }
+}

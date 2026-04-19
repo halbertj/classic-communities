@@ -7,7 +7,7 @@
   --surface: #fafafa;
   --muted: #6b7280;
   --border: #e5e7eb;
-  --primary: #2563eb;
+  --primary: #04316f;
   --primary-foreground: #ffffff;
 }
 
@@ -19,7 +19,7 @@
     --surface: #111113;
     --muted: #9ca3af;
     --border: #1f2937;
-    --primary: #3b82f6;
+    --primary: #04316f;
     --primary-foreground: #ffffff;
   }
 }
@@ -44,4 +44,280 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, sans-serif;
+}
+
+/* Tailwind v4 dropped the implicit `cursor: pointer` on <button>, deferring
+   to the user-agent stylesheet (which renders the OS default arrow, or a
+   text caret in Safari). Restore the click affordance globally so we don't
+   have to remember `cursor-pointer` on every button. Disabled buttons get
+   the standard not-allowed cursor instead. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* ---------- Leaflet: modern pin ---------- */
+/* A three-layer marker: translucent halo (fades in on hover), solid brand
+   dot with a crisp white ring. Keeps the default Leaflet DOM contract
+   (icon container is a 28×28 div) but replaces the visual. */
+.cc-pin {
+  background: transparent !important;
+  border: 0 !important;
+  position: relative;
+  transition: transform 160ms ease-out;
+}
+.cc-pin:hover {
+  transform: scale(1.08);
+  z-index: 1000;
+}
+.cc-pin__halo {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--primary);
+  opacity: 0.18;
+  transform: scale(0.7);
+  transition: transform 200ms ease-out, opacity 200ms ease-out;
+}
+.cc-pin:hover .cc-pin__halo {
+  transform: scale(1);
+  opacity: 0.28;
+}
+.cc-pin__dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 9999px;
+  background: var(--primary);
+  /* Tuned for both light and satellite basemaps: 2px white ring for crispness,
+     1px dark outer ring for contrast on bright imagery, ambient shadow. */
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 0 0 3px rgba(15, 23, 42, 0.25),
+    0 4px 12px -2px rgba(15, 23, 42, 0.55);
+}
+
+/* ---------- Zoom controls (circular) ---------- */
+.cc-zoom {
+  margin: 14px 0 0 14px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cc-zoom__btn {
+  appearance: none;
+  border: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--foreground);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.08),
+    0 8px 24px -8px rgba(15, 23, 42, 0.2);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
+}
+.cc-zoom__btn:hover {
+  background: #ffffff;
+  color: var(--primary);
+}
+.cc-zoom__btn:active {
+  transform: scale(0.95);
+}
+.cc-zoom__btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ---------- Basemap toggle (Satellite / Map) ---------- */
+.cc-basemap-toggle {
+  margin: 14px 14px 0 0 !important;
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 9999px;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.08),
+    0 8px 24px -8px rgba(15, 23, 42, 0.2);
+  ring: 1px solid rgba(0, 0, 0, 0.05);
+}
+.cc-basemap-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.cc-basemap-btn:hover {
+  color: var(--foreground);
+}
+.cc-basemap-btn--active {
+  background: var(--foreground);
+  color: var(--background);
+}
+.cc-basemap-btn--active:hover {
+  color: var(--background);
+}
+
+/* ---------- Leaflet: popup restyle ---------- */
+.leaflet-popup-content-wrapper {
+  border-radius: 12px !important;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.06),
+    0 12px 32px -8px rgba(15, 23, 42, 0.18) !important;
+  background: var(--background) !important;
+  color: var(--foreground) !important;
+  padding: 2px !important;
+}
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+}
+.leaflet-popup-content p {
+  margin: 0 !important;
+}
+/* Leaflet ships a default `.leaflet-container a { color: #0078A8 }` rule that
+   wins on specificity over Tailwind utilities applied to popup links. Pin
+   popup links to the primary token so they match the rest of the UI. */
+.leaflet-popup-content a {
+  color: var(--primary) !important;
+}
+.leaflet-popup-tip {
+  background: var(--background) !important;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Close button — floating white circle so it reads on top of a photo or
+   a light card background equally well. */
+.leaflet-popup-close-button {
+  top: 8px !important;
+  right: 8px !important;
+  width: 22px !important;
+  height: 22px !important;
+  padding: 0 !important;
+  border-radius: 9999px !important;
+  background: #fff !important;
+  color: var(--foreground) !important;
+  font:
+    600 14px/22px system-ui,
+    sans-serif !important;
+  text-align: center !important;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.12),
+    0 2px 6px rgba(15, 23, 42, 0.14) !important;
+  transition:
+    color 120ms ease,
+    transform 120ms ease;
+}
+.leaflet-popup-close-button:hover {
+  color: var(--primary) !important;
+  background: #fff !important;
+  transform: scale(1.06);
+}
+
+/* Variant used by CommunitiesMap popups: lets the cover photo bleed to the
+   rounded corners of the popup frame. */
+.cc-popup .leaflet-popup-content-wrapper {
+  padding: 0 !important;
+  overflow: hidden;
+}
+.cc-popup .leaflet-popup-content {
+  /* Leaflet's JS forces `width: measured + 1px` on this element to guard
+     against re-wrap during measurement. That extra pixel shows up as a white
+     sliver next to full-bleed imagery, so we let the content shrink-wrap the
+     inner fixed-width div instead. */
+  margin: 0 !important;
+  width: auto !important;
+}
+.cc-popup__cover {
+  display: block;
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+}
+.cc-popup__body {
+  padding: 12px 14px;
+}
+
+/* Compact "City, ST" pill shown on the single-community detail map. */
+.cc-popup--city .leaflet-popup-content-wrapper {
+  padding: 0 !important;
+  border-radius: 999px;
+}
+.cc-popup--city .leaflet-popup-content {
+  margin: 0 !important;
+  width: auto !important;
+}
+.cc-popup__city {
+  padding: 6px 14px;
+  font:
+    600 13px/1.2 system-ui,
+    sans-serif;
+  color: var(--foreground);
+  white-space: nowrap;
+}
+
+/* Hide the native horizontal scrollbar on the About gallery — swiping,
+   trackpads, and the arrow buttons are the intended interactions. */
+.cc-about-scroller {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.cc-about-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---------- Leaflet: attribution bar ---------- */
+.leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-size: 10px !important;
+  padding: 2px 8px !important;
+  border-radius: 6px 0 0 0 !important;
+  color: var(--muted) !important;
+}
+.leaflet-control-attribution a {
+  color: var(--muted) !important;
+  text-decoration: none;
+}
+.leaflet-control-attribution a:hover {
+  color: var(--foreground) !important;
+}
+
+/* ---------- Leaflet: container (outline fix) ---------- */
+.leaflet-container {
+  font-family: inherit !important;
+  background: var(--surface);
+}
+.leaflet-container:focus {
+  outline: none;
 }

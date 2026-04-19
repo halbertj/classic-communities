@@ -69,6 +69,7 @@ export type Database = {
           date_started: string | null
           id: string
           name: string
+          site_plan_path: string | null
           slug: string
           updated_at: string
         }
@@ -81,6 +82,7 @@ export type Database = {
           date_started?: string | null
           id?: string
           name: string
+          site_plan_path?: string | null
           slug: string
           updated_at?: string
         }
@@ -93,6 +95,7 @@ export type Database = {
           date_started?: string | null
           id?: string
           name?: string
+          site_plan_path?: string | null
           slug?: string
           updated_at?: string
         }
@@ -102,6 +105,57 @@ export type Database = {
             columns: ["address_id"]
             isOneToOne: false
             referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_photos: {
+        Row: {
+          alt_text: string | null
+          caption: string | null
+          community_id: string
+          created_at: string
+          display_order: number
+          id: string
+          storage_path: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          alt_text?: string | null
+          caption?: string | null
+          community_id: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          storage_path: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          alt_text?: string | null
+          caption?: string | null
+          community_id?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          storage_path?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_photos_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_photos_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
