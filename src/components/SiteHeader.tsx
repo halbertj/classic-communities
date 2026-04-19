@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-import { getSession } from "@/lib/auth";
-
 type SiteHeaderProps = {
   /**
    * When `true`, the header renders with a light wordmark / muted links so it
@@ -20,17 +18,14 @@ type SiteHeaderProps = {
 /**
  * Site-wide top navigation.
  *
- * Renders the wordmark on the left and a compact nav on the right. If the
- * viewer is signed in we surface an Admin shortcut (admins only) and a
- * Sign out action in place of the Sign in link.
+ * Renders the wordmark on the left and a compact nav on the right. Auth
+ * controls (Sign in / Sign out / Admin) live in the footer instead — see
+ * `SiteFooter` — since they're only used by the site owner.
  */
-export async function SiteHeader({
+export function SiteHeader({
   transparent = false,
   logo = false,
 }: SiteHeaderProps) {
-  const session = await getSession();
-  const isAdmin = session?.profile.role === "admin";
-
   const wrapperClass = transparent
     ? "absolute inset-x-0 top-0 z-30 bg-transparent"
     : "sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70";
@@ -47,7 +42,10 @@ export async function SiteHeader({
 
   return (
     <header className={wrapperClass}>
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
+      {/* Full-viewport row — we intentionally skip a max-width cap here so
+          the logo hugs the left edge and the nav hugs the right edge on
+          wide screens instead of floating in a narrow centered column. */}
+      <div className="flex h-16 w-full items-center justify-between px-6 lg:px-8">
         <Link
           href="/"
           aria-label="Classic Communities — Home"
@@ -81,28 +79,12 @@ export async function SiteHeader({
           <Link href="/communities" className={linkClass}>
             Communities
           </Link>
+          <Link href="/story" className={`${linkClass} hidden sm:inline`}>
+            Story
+          </Link>
           <Link href="/#about" className={`${linkClass} hidden sm:inline`}>
             About
           </Link>
-
-          {session ? (
-            <>
-              {isAdmin && (
-                <Link href="/admin/communities" className={linkClass}>
-                  Admin
-                </Link>
-              )}
-              <form action="/sign-out" method="POST">
-                <button type="submit" className={linkClass}>
-                  Sign out
-                </button>
-              </form>
-            </>
-          ) : (
-            <Link href="/sign-in" className={linkClass}>
-              Sign in
-            </Link>
-          )}
         </nav>
       </div>
     </header>

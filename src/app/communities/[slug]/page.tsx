@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import type { MapCommunity } from "@/components/CommunitiesMap";
+import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/SiteHeader";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database.types";
-
-import type { MapCommunity } from "@/components/CommunitiesMap";
 
 import { CommunityGallery, type GalleryPhoto } from "./CommunityGallery";
 import { CommunityMapPanel } from "./CommunityMapPanel";
@@ -57,12 +58,14 @@ export default async function CommunityDetailPage({ params }: PageProps) {
         name,
         slug,
         community_type,
+        archived,
         cover_photo_path,
         site_plan_path,
         logo_path,
         date_started,
         date_completed,
         num_homes,
+        description,
         address:addresses ( city, state, line1, line2, postal_code, latitude, longitude ),
         photos:community_photos (
           id,
@@ -79,17 +82,25 @@ export default async function CommunityDetailPage({ params }: PageProps) {
 
   if (error) {
     return (
-      <main className="flex-1 bg-background px-6 py-16">
-        <div className="mx-auto w-full max-w-5xl">
-          <p className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            Couldn&apos;t load community: {error.message}
-          </p>
-        </div>
-      </main>
+      <>
+        <SiteHeader logo />
+        <main className="flex-1 bg-background px-6 py-16">
+          <div className="mx-auto w-full max-w-5xl">
+            <p className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              Couldn&apos;t load community: {error.message}
+            </p>
+          </div>
+        </main>
+
+        <SiteFooter />
+      </>
     );
   }
 
-  if (!community) {
+  // Archived communities are hidden from the public site. We 404 here
+  // rather than show a "gone" page so bookmarked URLs are indistinguishable
+  // from genuinely missing slugs.
+  if (!community || community.archived) {
     notFound();
   }
 
@@ -175,9 +186,16 @@ export default async function CommunityDetailPage({ params }: PageProps) {
   const sitePlanIsPdf =
     community.site_plan_path?.toLowerCase().endsWith(".pdf") ?? false;
 
+  // Individual homes aren't modeled in the DB yet. Keeping this as an
+  // explicit empty list (instead of omitting the section) means the layout
+  // below lights up automatically the moment we start populating homes.
+  const homes: { id: string; name: string }[] = [];
+
   return (
-    <main className="flex-1 bg-background">
-      <div className="mx-auto w-full max-w-6xl px-6 pb-24 pt-10 sm:pt-14">
+    <>
+      <SiteHeader logo />
+      <main className="flex-1 bg-background">
+        <div className="mx-auto w-full max-w-6xl px-6 pb-24 pt-10 sm:pt-14">
         {/* Breadcrumb / back link */}
         <nav className="mb-6 text-sm">
           <Link
@@ -238,26 +256,39 @@ export default async function CommunityDetailPage({ params }: PageProps) {
 
           <div className="mt-8 h-px w-full bg-border" />
 
-          {/* Description */}
+          {/* Description.
+              Prefer the admin-authored `description` when it's been filled
+              in. We render with `whitespace-pre-line` so paragraph breaks
+              from the textarea survive without pulling in a markdown
+              parser. If no description is set yet, we fall back to the
+              auto-generated one-liner plus a "coming soon" nudge so the
+              page never feels empty. */}
           <div className="mt-8 max-w-2xl space-y-4 text-[15px] leading-relaxed text-foreground/90">
             <h2 className="font-serif text-2xl font-semibold text-foreground">
               About this community
             </h2>
-            <p>
-              {community.name} is
-              {typeLabel
-                ? ` a ${typeLabel.toLowerCase()} community`
-                : " a community"}
-              {locationLine ? ` in ${locationLine}` : ""}
-              {years ? `, built ${years}` : ""}. Designed and developed by
-              Classic Communities, it carries the same craft, care, and
-              neighborhood-first planning that defines the Classic portfolio.
-            </p>
-            <p className="text-muted">
-              A longer write-up — the story of the land, the floor plans
-              offered here, and the families who&apos;ve called it home — will
-              live here soon.
-            </p>
+            {community.description ? (
+              <p className="whitespace-pre-line">{community.description}</p>
+            ) : (
+              <>
+                <p>
+                  {community.name} is
+                  {typeLabel
+                    ? ` a ${typeLabel.toLowerCase()} community`
+                    : " a community"}
+                  {locationLine ? ` in ${locationLine}` : ""}
+                  {years ? `, built ${years}` : ""}. Designed and developed
+                  by Classic Communities, it carries the same craft, care,
+                  and neighborhood-first planning that defines the Classic
+                  portfolio.
+                </p>
+                <p className="text-muted">
+                  A longer write-up — the story of the land, the floor plans
+                  offered here, and the families who&apos;ve called it home —
+                  will live here soon.
+                </p>
+              </>
+            )}
           </div>
         </section>
 
@@ -334,36 +365,41 @@ export default async function CommunityDetailPage({ params }: PageProps) {
           </section>
         )}
 
-        {/* Homes in this community — placeholder for now */}
-        <section className="mt-16 border-t border-border pt-12">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[4px] text-muted">
-                Coming soon
-              </p>
-              <h2 className="mt-2 font-serif text-3xl font-semibold">
-                Homes in {community.name}
-              </h2>
-              <p className="mt-2 max-w-xl text-sm text-muted">
-                Individual homes and floor plans will appear here once
-                they&apos;re added.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="flex h-56 items-center justify-center rounded-xl border border-dashed border-border bg-surface/40 text-sm text-muted"
-                aria-hidden
-              >
-                Home listing
+        {/*
+          Homes in this community. There's no homes table yet, so `homes`
+          is always empty and this section is hidden. Once homes are wired
+          up, this guard will flip on automatically as soon as any exist.
+        */}
+        {homes.length > 0 && (
+          <section className="mt-16 border-t border-border pt-12">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[4px] text-muted">
+                  Available
+                </p>
+                <h2 className="mt-2 font-serif text-3xl font-semibold">
+                  Homes in {community.name}
+                </h2>
               </div>
-            ))}
-          </div>
-        </section>
-      </div>
-    </main>
+            </div>
+
+            <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {homes.map((home) => (
+                <div
+                  key={home.id}
+                  className="flex h-56 items-center justify-center rounded-xl border border-dashed border-border bg-surface/40 text-sm text-muted"
+                  aria-hidden
+                >
+                  {home.name}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+        </div>
+      </main>
+
+      <SiteFooter />
+    </>
   );
 }

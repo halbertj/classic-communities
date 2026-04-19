@@ -1,11 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 
-import { setCoverPhoto, setStarred } from "./actions";
+import { archiveCommunity, setStarred } from "./actions";
+import { ArchiveDialog } from "./ArchiveDialog";
 import { EditCommunityDrawer } from "./EditCommunityDrawer";
 import type { CommunityType, CommunityWithAddress } from "./types";
 
@@ -26,23 +28,46 @@ export function CommunitiesTable({
   communities: CommunityWithAddress[];
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
-  // Optimistic overrides for cover_photo_path — lets the inline drop slot
-  // update instantly without waiting for a server round-trip.
-  const [coverOverrides, setCoverOverrides] = useState<
-    Record<string, string | null>
-  >({});
+  // Simple case-insensitive substring match across the columns a viewer
+  // can reasonably expect to search: name, slug, city, state.
+  const visibleCommunities = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return communities;
+    return communities.filter((c) => {
+      const city = c.address?.city ?? "";
+      const state = c.address?.state ?? "";
+      return (
+        c.name.toLowerCase().includes(q) ||
+        c.slug.toLowerCase().includes(q) ||
+        city.toLowerCase().includes(q) ||
+        state.toLowerCase().includes(q)
+      );
+    });
+  }, [communities, query]);
 
-  // Same pattern for the inline star toggle.
+  // Optimistic overrides for the inline star toggle so the button can
+  // flip instantly without waiting for a server round-trip.
   const [starredOverrides, setStarredOverrides] = useState<
     Record<string, boolean>
   >({});
 
-  const effectivePath = (c: CommunityWithAddress): string | null =>
-    c.id in coverOverrides ? coverOverrides[c.id] : c.cover_photo_path;
+  // Same pattern for archive/unarchive. Archived rows stay in the table
+  // (muted) so admins can restore them.
+  const [archivedOverrides, setArchivedOverrides] = useState<
+    Record<string, boolean>
+  >({});
+
+  // Which community (if any) is showing the archive confirmation dialog.
+  const [archiveTarget, setArchiveTarget] =
+    useState<CommunityWithAddress | null>(null);
 
   const effectiveStarred = (c: CommunityWithAddress): boolean =>
     c.id in starredOverrides ? starredOverrides[c.id] : c.starred;
+
+  const effectiveArchived = (c: CommunityWithAddress): boolean =>
+    c.id in archivedOverrides ? archivedOverrides[c.id] : c.archived;
 
   const selected = selectedId
     ? (() => {
@@ -50,14 +75,65 @@ export function CommunitiesTable({
         if (!base) return null;
         return {
           ...base,
-          cover_photo_path: effectivePath(base),
           starred: effectiveStarred(base),
+          archived: effectiveArchived(base),
         };
       })()
     : null;
 
+  async function handleSetArchived(id: string, archived: boolean) {
+    const prev = archivedOverrides[id];
+    setArchivedOverrides((p) => ({ ...p, [id]: archived }));
+    const res = await archiveCommunity(id, archived);
+    if (!res.ok) {
+      setArchivedOverrides((p) => ({
+        ...p,
+        [id]: prev ?? !archived,
+      }));
+      throw new Error(res.message);
+    }
+  }
+
   return (
     <>
+      <div className="mb-4 flex items-center gap-3">
+        <div className="relative w-full max-w-sm">
+          <svg
+            aria-hidden
+            viewBox="0 0 20 20"
+            fill="none"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+          >
+            <circle
+              cx="9"
+              cy="9"
+              r="6"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
+            <path
+              d="m14 14 3 3"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search name, slug, city, state…"
+            aria-label="Search communities"
+            className="h-9 w-full rounded-md border border-border bg-surface pl-9 pr-3 text-sm outline-none placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+        {query && (
+          <span className="text-xs text-muted tabular-nums">
+            {visibleCommunities.length} of {communities.length}
+          </span>
+        )}
+      </div>
+
       <div className="overflow-hidden rounded-lg border border-border">
         <table className="w-full border-collapse text-sm">
           <colgroup>
@@ -69,6 +145,7 @@ export function CommunitiesTable({
             <col style={{ width: 80 }} />
             <col style={{ width: 90 }} />
             <col style={{ width: 180 }} />
+            <col style={{ width: 48 }} />
           </colgroup>
           <thead className="bg-surface text-left text-xs uppercase tracking-wide text-muted">
             <tr>
@@ -82,68 +159,105 @@ export function CommunitiesTable({
               <th className="px-4 py-3 font-medium">Completed</th>
               <th className="px-4 py-3 font-medium">Homes</th>
               <th className="px-4 py-3 font-medium">Location</th>
+              <th className="px-2 py-3 font-medium">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {communities.map((c) => (
-              <tr
-                key={c.id}
-                tabIndex={0}
-                role="button"
-                aria-label={`Edit ${c.name}`}
-                onClick={() => setSelectedId(c.id)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setSelectedId(c.id);
-                  }
-                }}
-                className="cursor-pointer border-t border-border outline-none transition-colors hover:bg-surface focus:bg-surface focus:ring-1 focus:ring-inset focus:ring-primary/40"
-              >
-                <td className="px-2 py-2 align-middle">
-                  <StarCell
-                    communityId={c.id}
-                    starred={effectiveStarred(c)}
-                    onChange={(value) =>
-                      setStarredOverrides((prev) => ({
-                        ...prev,
-                        [c.id]: value,
-                      }))
-                    }
-                  />
-                </td>
-                <td className="px-3 py-2 align-middle">
-                  <CoverCell
-                    communityId={c.id}
-                    coverPath={effectivePath(c)}
-                    onChange={(path) =>
-                      setCoverOverrides((prev) => ({ ...prev, [c.id]: path }))
-                    }
-                  />
-                </td>
-                <td className="px-4 py-3 align-middle">
-                  <div className="font-medium">{c.name}</div>
-                  <div className="font-mono text-[11px] text-muted">
-                    {c.slug}
-                  </div>
-                </td>
-                <td className="px-4 py-3 align-middle">
-                  {c.community_type ? TYPE_LABEL[c.community_type] : "—"}
-                </td>
-                <td className="px-4 py-3 align-middle tabular-nums">
-                  {formatYear(c.date_started)}
-                </td>
-                <td className="px-4 py-3 align-middle tabular-nums">
-                  {formatYear(c.date_completed)}
-                </td>
-                <td className="px-4 py-3 align-middle tabular-nums">
-                  {typeof c.num_homes === "number" ? c.num_homes : "—"}
-                </td>
-                <td className="px-4 py-3 align-middle text-muted">
-                  {c.address ? `${c.address.city}, ${c.address.state}` : "—"}
+            {visibleCommunities.length === 0 && (
+              <tr>
+                <td
+                  colSpan={9}
+                  className="px-4 py-10 text-center text-sm text-muted"
+                >
+                  No communities match &ldquo;{query}&rdquo;.
                 </td>
               </tr>
-            ))}
+            )}
+            {visibleCommunities.map((c) => {
+              const archived = effectiveArchived(c);
+              return (
+                <tr
+                  key={c.id}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Edit ${c.name}`}
+                  onClick={() => setSelectedId(c.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedId(c.id);
+                    }
+                  }}
+                  className={`cursor-pointer border-t border-border outline-none transition-colors hover:bg-surface focus:bg-surface focus:ring-1 focus:ring-inset focus:ring-primary/40 ${
+                    archived ? "bg-surface/40 text-muted" : ""
+                  }`}
+                >
+                  <td className="px-2 py-2 align-middle">
+                    <StarCell
+                      communityId={c.id}
+                      starred={effectiveStarred(c)}
+                      onChange={(value) =>
+                        setStarredOverrides((prev) => ({
+                          ...prev,
+                          [c.id]: value,
+                        }))
+                      }
+                    />
+                  </td>
+                  <td className="px-3 py-2 align-middle">
+                    <div className={archived ? "opacity-50" : ""}>
+                      <CoverCell coverPath={c.cover_photo_path} />
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 align-middle">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{c.name}</span>
+                      {archived && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800">
+                          Archived
+                        </span>
+                      )}
+                    </div>
+                    <div className="font-mono text-[11px] text-muted">
+                      {c.slug}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 align-middle">
+                    {c.community_type ? TYPE_LABEL[c.community_type] : "—"}
+                  </td>
+                  <td className="px-4 py-3 align-middle tabular-nums">
+                    {formatYear(c.date_started)}
+                  </td>
+                  <td className="px-4 py-3 align-middle tabular-nums">
+                    {formatYear(c.date_completed)}
+                  </td>
+                  <td className="px-4 py-3 align-middle tabular-nums">
+                    {typeof c.num_homes === "number" ? c.num_homes : "—"}
+                  </td>
+                  <td className="px-4 py-3 align-middle text-muted">
+                    {c.address ? `${c.address.city}, ${c.address.state}` : "—"}
+                  </td>
+                  <td className="px-2 py-2 align-middle">
+                    <RowMenu
+                      community={c}
+                      archived={archived}
+                      onEdit={() => setSelectedId(c.id)}
+                      onArchive={() => setArchiveTarget(c)}
+                      onUnarchive={async () => {
+                        try {
+                          await handleSetArchived(c.id, false);
+                        } catch {
+                          /* error bubbles via alert elsewhere; menu just
+                             closes so the admin can retry */
+                        }
+                      }}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -153,6 +267,17 @@ export function CommunitiesTable({
           key={selected.id}
           community={selected}
           onClose={() => setSelectedId(null)}
+        />
+      )}
+
+      {archiveTarget && (
+        <ArchiveDialog
+          communityName={archiveTarget.name}
+          onCancel={() => setArchiveTarget(null)}
+          onConfirm={async () => {
+            await handleSetArchived(archiveTarget.id, true);
+            setArchiveTarget(null);
+          }}
         />
       )}
     </>
@@ -235,26 +360,225 @@ function StarCell({
 }
 
 /**
- * Inline cover-photo cell.
- *   - Filled: thumbnail. Clicking bubbles up so the row opens the edit
- *     drawer (same as clicking anywhere else on the row).
- *   - Empty: dashed drop target. Click opens a file picker; drag-and-drop
- *     uploads. Both paths stop propagation so the drawer doesn't open.
+ * Read-only thumbnail for the community's cover. The cover is whichever
+ * photo sits first in the gallery (or the legacy `cover_photo_path` for
+ * communities that haven't uploaded a gallery yet). To change it, the
+ * admin opens the drawer and reorders / uploads photos.
  */
-function CoverCell({
-  communityId,
-  coverPath,
-  onChange,
+/**
+ * Per-row actions menu (the trailing ⋮ button).
+ *
+ *   - Edit — opens the edit drawer (same as clicking the row).
+ *   - View — opens the public community detail page in a new tab.
+ *   - Archive / Restore — archive triggers a double-confirmation
+ *     dialog, restore is a single click.
+ *
+ * Click + keyboard handlers all `stopPropagation` so interacting with the
+ * menu never also bubbles up to the row and opens the drawer.
+ */
+function RowMenu({
+  community,
+  archived,
+  onEdit,
+  onArchive,
+  onUnarchive,
 }: {
-  communityId: string;
-  coverPath: string | null;
-  onChange: (path: string | null) => void;
+  community: CommunityWithAddress;
+  archived: boolean;
+  onEdit: () => void;
+  onArchive: () => void;
+  onUnarchive: () => void | Promise<void>;
 }) {
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click / ESC.
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (menuRef.current?.contains(t)) return;
+      if (buttonRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+
+  return (
+    <div className="relative" onClick={stop} onKeyDown={stop}>
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Actions for ${community.name}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className={`flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-foreground ${
+          open ? "bg-surface text-foreground" : ""
+        }`}
+      >
+        <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden>
+          <circle cx="10" cy="4" r="1.5" fill="currentColor" />
+          <circle cx="10" cy="10" r="1.5" fill="currentColor" />
+          <circle cx="10" cy="16" r="1.5" fill="currentColor" />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          ref={menuRef}
+          role="menu"
+          className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-md border border-border bg-background shadow-lg"
+        >
+          <MenuItem
+            onSelect={() => {
+              setOpen(false);
+              onEdit();
+            }}
+          >
+            Edit
+          </MenuItem>
+          <MenuItem
+            as={Link}
+            href={`/communities/${community.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onSelect={() => setOpen(false)}
+          >
+            <span className="flex items-center justify-between gap-2">
+              View public page
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                aria-hidden
+                className="text-muted"
+              >
+                <path
+                  d="M4 2h6v6"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M10 2L5 7"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M8 7v3H2V4h3"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+          </MenuItem>
+          <div className="my-1 h-px bg-border" />
+          {archived ? (
+            <MenuItem
+              onSelect={async () => {
+                setOpen(false);
+                await onUnarchive();
+              }}
+            >
+              Restore
+            </MenuItem>
+          ) : (
+            <MenuItem
+              danger
+              onSelect={() => {
+                setOpen(false);
+                onArchive();
+              }}
+            >
+              Archive…
+            </MenuItem>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type MenuItemBaseProps = {
+  children: React.ReactNode;
+  danger?: boolean;
+  onSelect: () => void | Promise<void>;
+};
+
+type MenuItemProps =
+  | (MenuItemBaseProps & { as?: undefined })
+  | (MenuItemBaseProps & {
+      as: typeof Link;
+      href: string;
+      target?: string;
+      rel?: string;
+    });
+
+/** Shared menu-item styling so Link and button variants match. */
+function MenuItem(props: MenuItemProps) {
+  const classes = `block w-full px-3 py-2 text-left text-sm transition-colors hover:bg-surface focus:bg-surface focus:outline-none ${
+    props.danger ? "text-red-600" : "text-foreground"
+  }`;
+
+  if ("as" in props && props.as === Link) {
+    return (
+      <Link
+        role="menuitem"
+        href={props.href}
+        target={props.target}
+        rel={props.rel}
+        onClick={(e) => {
+          e.stopPropagation();
+          void props.onSelect();
+        }}
+        className={classes}
+      >
+        {props.children}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      role="menuitem"
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        void props.onSelect();
+      }}
+      className={classes}
+    >
+      {props.children}
+    </button>
+  );
+}
+
+function CoverCell({ coverPath }: { coverPath: string | null }) {
   const supabase = useMemo(() => createClient(), []);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [dragging, setDragging] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const publicUrl = useMemo(() => {
     if (!coverPath) return null;
@@ -263,44 +587,6 @@ function CoverCell({
       .getPublicUrl(coverPath);
     return data.publicUrl;
   }, [coverPath, supabase]);
-
-  async function uploadFile(file: File) {
-    setError(null);
-
-    if (!file.type.startsWith("image/")) {
-      setError("Image files only.");
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const extFromName = file.name.split(".").pop()?.toLowerCase();
-      const extFromType = file.type.split("/")[1]?.toLowerCase();
-      const ext = (extFromName || extFromType || "jpg").replace(
-        /[^a-z0-9]/g,
-        "",
-      );
-      const path = `${communityId}/${Date.now()}.${ext}`;
-
-      const { error: uploadErr } = await supabase.storage
-        .from("community-photos")
-        .upload(path, file, {
-          cacheControl: "31536000",
-          contentType: file.type || undefined,
-          upsert: false,
-        });
-      if (uploadErr) throw uploadErr;
-
-      const res = await setCoverPhoto(communityId, path);
-      if (!res.ok) throw new Error(res.message);
-
-      onChange(path);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed.");
-    } finally {
-      setUploading(false);
-    }
-  }
 
   if (publicUrl) {
     return (
@@ -317,104 +603,24 @@ function CoverCell({
 
   return (
     <div
-      role="button"
-      tabIndex={-1}
-      aria-label="Upload cover photo"
-      onClick={(e) => {
-        e.stopPropagation();
-        if (!uploading) inputRef.current?.click();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          e.stopPropagation();
-          if (!uploading) inputRef.current?.click();
-        }
-      }}
-      onDragEnter={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDragging(true);
-      }}
-      onDragOver={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!dragging) setDragging(true);
-      }}
-      onDragLeave={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDragging(false);
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDragging(false);
-        const file = e.dataTransfer.files?.[0];
-        if (file) void uploadFile(file);
-      }}
-      className={`relative flex h-12 w-16 items-center justify-center rounded-md border border-dashed transition-colors ${
-        dragging
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-border bg-surface text-muted hover:border-foreground/40 hover:text-foreground"
-      } ${uploading ? "pointer-events-none opacity-60" : ""}`}
-      title={error ?? "Click or drop a photo to upload"}
+      aria-hidden
+      title="No photo yet — add one in the drawer"
+      className="flex h-12 w-16 items-center justify-center rounded-md border border-dashed border-border bg-surface text-muted"
     >
-      {uploading ? (
-        <svg
-          className="h-5 w-5 animate-spin"
-          viewBox="0 0 24 24"
-          fill="none"
-          aria-hidden
-        >
-          <circle
-            cx="12"
-            cy="12"
-            r="9"
-            stroke="currentColor"
-            strokeOpacity="0.25"
-            strokeWidth="3"
-          />
-          <path
-            d="M21 12a9 9 0 0 0-9-9"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-          />
-        </svg>
-      ) : (
-        <svg
-          className="h-5 w-5"
-          viewBox="0 0 24 24"
-          fill="none"
-          aria-hidden
-        >
-          <path
-            d="M12 16V4m0 0l-4 4m4-4l4 4M5 18h14"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      )}
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onClick={(e) => e.stopPropagation()}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = "";
-          if (file) void uploadFile(file);
-        }}
-      />
-      {error && !dragging && (
-        <span className="pointer-events-none absolute -bottom-5 left-0 whitespace-nowrap text-[10px] text-red-600">
-          {error}
-        </span>
-      )}
+      <svg
+        className="h-5 w-5"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden
+      >
+        <path
+          d="M4 16l4-5 3 4 3-3 6 7M4 7h16"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
     </div>
   );
 }

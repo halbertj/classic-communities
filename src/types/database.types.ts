@@ -62,11 +62,14 @@ export type Database = {
       communities: {
         Row: {
           address_id: string | null
+          archived: boolean
+          archived_at: string | null
           community_type: Database["public"]["Enums"]["community_type"] | null
           cover_photo_path: string | null
           created_at: string
           date_completed: string | null
           date_started: string | null
+          description: string | null
           id: string
           logo_path: string | null
           name: string
@@ -74,15 +77,19 @@ export type Database = {
           site_plan_path: string | null
           slug: string
           starred: boolean
+          street_names: string[]
           updated_at: string
         }
         Insert: {
           address_id?: string | null
+          archived?: boolean
+          archived_at?: string | null
           community_type?: Database["public"]["Enums"]["community_type"] | null
           cover_photo_path?: string | null
           created_at?: string
           date_completed?: string | null
           date_started?: string | null
+          description?: string | null
           id?: string
           logo_path?: string | null
           name: string
@@ -90,15 +97,19 @@ export type Database = {
           site_plan_path?: string | null
           slug: string
           starred?: boolean
+          street_names?: string[]
           updated_at?: string
         }
         Update: {
           address_id?: string | null
+          archived?: boolean
+          archived_at?: string | null
           community_type?: Database["public"]["Enums"]["community_type"] | null
           cover_photo_path?: string | null
           created_at?: string
           date_completed?: string | null
           date_started?: string | null
+          description?: string | null
           id?: string
           logo_path?: string | null
           name?: string
@@ -106,6 +117,7 @@ export type Database = {
           site_plan_path?: string | null
           slug?: string
           starred?: boolean
+          street_names?: string[]
           updated_at?: string
         }
         Relationships: [

@@ -122,6 +122,21 @@ export function CommunityForm() {
             className={inputCls}
           />
         </Field>
+
+        <div className="sm:col-span-2">
+          <Field
+            label="Description"
+            error={fieldErrors.description}
+            hint="Optional — shown on the public detail page under “About this community.” Can be edited later."
+          >
+            <textarea
+              name="description"
+              rows={5}
+              placeholder="A paragraph or two about this community — how it came together, what makes it distinctive, or a bit of its history."
+              className={`${inputCls} resize-y leading-relaxed`}
+            />
+          </Field>
+        </div>
       </section>
 
       <section>

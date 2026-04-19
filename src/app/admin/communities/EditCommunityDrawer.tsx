@@ -73,16 +73,6 @@ export function EditCommunityDrawer({
   const [slug, setSlug] = useState(community.slug);
   const [slugTouched, setSlugTouched] = useState(false);
 
-  // Cover photo state. Uploads happen directly from the browser to Supabase
-  // Storage (bypassing Next.js Server Action body limits). The final path is
-  // submitted as a hidden field.
-  const [coverPath, setCoverPath] = useState<string | null>(
-    community.cover_photo_path,
-  );
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [coverDragging, setCoverDragging] = useState(false);
-
   // Site plan state. Site plans are typically PDFs or large images
   // (lot layouts), so they live in a dedicated `community-site-plans`
   // bucket. Same direct-to-Storage upload pattern as the cover photo.
@@ -159,16 +149,6 @@ export function EditCommunityDrawer({
 
   const supabase = useMemo(() => createClient(), []);
 
-  // Public URL for preview (cover_photo_path stores the Storage key; the
-  // bucket is public so getPublicUrl is sync + does not hit the network).
-  const coverPreviewUrl = useMemo(() => {
-    if (!coverPath) return null;
-    const { data } = supabase.storage
-      .from("community-photos")
-      .getPublicUrl(coverPath);
-    return data.publicUrl;
-  }, [coverPath, supabase]);
-
   const sitePlanPreviewUrl = useMemo(() => {
     if (!sitePlanPath) return null;
     const { data } = supabase.storage
@@ -186,76 +166,6 @@ export function EditCommunityDrawer({
       .getPublicUrl(logoPath);
     return data.publicUrl;
   }, [logoPath, supabase]);
-
-  async function uploadCoverFile(file: File) {
-    if (!file.type.startsWith("image/")) {
-      setUploadError("Cover must be an image file.");
-      return;
-    }
-
-    setUploading(true);
-    setUploadError(null);
-    try {
-      const extFromName = file.name.split(".").pop()?.toLowerCase();
-      const extFromType = file.type.split("/")[1]?.toLowerCase();
-      const ext = (extFromName || extFromType || "jpg").replace(
-        /[^a-z0-9]/g,
-        "",
-      );
-      const path = `${community.id}/${Date.now()}.${ext}`;
-
-      const { error } = await supabase.storage
-        .from("community-photos")
-        .upload(path, file, {
-          cacheControl: "31536000",
-          contentType: file.type || undefined,
-          upsert: false,
-        });
-      if (error) throw error;
-      setCoverPath(path);
-    } catch (err) {
-      setUploadError(
-        err instanceof Error ? err.message : "Upload failed. Try again.",
-      );
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function handlePhotoChange(
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) {
-    const file = event.target.files?.[0];
-    event.target.value = ""; // allow re-selecting the same file later
-    if (!file) return;
-    await uploadCoverFile(file);
-  }
-
-  // Drag-and-drop onto the cover preview. Same pattern as the site-plan
-  // drop zone: filter on `dataTransfer.types` so nested children don't
-  // flicker the overlay, and bail entirely if a file upload is in flight.
-  function handleCoverDragOver(event: React.DragEvent<HTMLDivElement>) {
-    if (uploading) return;
-    if (!event.dataTransfer.types.includes("Files")) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "copy";
-    if (!coverDragging) setCoverDragging(true);
-  }
-
-  function handleCoverDragLeave(event: React.DragEvent<HTMLDivElement>) {
-    const next = event.relatedTarget as Node | null;
-    if (next && event.currentTarget.contains(next)) return;
-    setCoverDragging(false);
-  }
-
-  async function handleCoverDrop(event: React.DragEvent<HTMLDivElement>) {
-    event.preventDefault();
-    setCoverDragging(false);
-    if (uploading) return;
-    const file = event.dataTransfer.files?.[0];
-    if (!file) return;
-    await uploadCoverFile(file);
-  }
 
   async function uploadSitePlanFile(file: File) {
     // Site plans are typically higher-fidelity than a cover photo
@@ -792,11 +702,6 @@ export function EditCommunityDrawer({
           <input type="hidden" name="id" value={community.id} />
           <input
             type="hidden"
-            name="cover_photo_path"
-            value={coverPath ?? ""}
-          />
-          <input
-            type="hidden"
             name="site_plan_path"
             value={sitePlanPath ?? ""}
           />
@@ -819,100 +724,6 @@ export function EditCommunityDrawer({
               className={inputCls}
             />
           </Field>
-
-          <section className="flex flex-col gap-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-              Cover photo
-            </h3>
-            <div
-              onDragEnter={handleCoverDragOver}
-              onDragOver={handleCoverDragOver}
-              onDragLeave={handleCoverDragLeave}
-              onDrop={handleCoverDrop}
-              className={`relative overflow-hidden rounded-lg border bg-surface transition-colors ${
-                coverDragging
-                  ? "border-primary ring-2 ring-primary/40"
-                  : "border-border"
-              }`}
-            >
-              {coverPreviewUrl ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={coverPreviewUrl}
-                  alt=""
-                  className="h-48 w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-48 w-full flex-col items-center justify-center gap-1 px-4 text-center text-sm text-muted">
-                  <svg
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    aria-hidden
-                    className="text-muted"
-                  >
-                    <path
-                      d="M12 16V4m0 0l-4 4m4-4l4 4"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <span>No photo yet</span>
-                  <span className="text-xs text-muted">
-                    Drag an image here, or use the button below.
-                  </span>
-                </div>
-              )}
-              {coverDragging && !uploading && (
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 flex items-center justify-center bg-primary/10 text-sm font-medium text-primary"
-                >
-                  Drop to upload
-                </div>
-              )}
-              {uploading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-sm text-white">
-                  Uploading…
-                </div>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <label className="cursor-pointer rounded border border-border px-3 py-1.5 hover:bg-surface">
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handlePhotoChange}
-                  disabled={uploading}
-                />
-                {coverPath ? "Replace photo" : "Upload photo"}
-              </label>
-              {coverPath && (
-                <button
-                  type="button"
-                  onClick={() => setCoverPath(null)}
-                  className="text-muted hover:text-red-600"
-                >
-                  Remove
-                </button>
-              )}
-              {uploadError && (
-                <span className="text-xs text-red-600" role="alert">
-                  {uploadError}
-                </span>
-              )}
-            </div>
-          </section>
 
           <section className="flex flex-col gap-3">
             <div className="flex items-end justify-between">
@@ -1085,8 +896,8 @@ export function EditCommunityDrawer({
 
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
               <span>
-                Images up to 15MB each. Drop multiple at once — drag
-                thumbnails to reorder.
+                The first photo is used as the cover everywhere. Images up to
+                15MB each — drop multiple at once, drag thumbnails to reorder.
               </span>
               {photosError && (
                 <span className="text-red-600" role="alert">
@@ -1386,6 +1197,34 @@ export function EditCommunityDrawer({
               </Field>
             </div>
 
+            <Field
+              label="Description"
+              error={fieldErrors.description}
+              hint="Shown on the public detail page under “About this community.” Leave blank to fall back to the auto-generated one-liner."
+            >
+              <textarea
+                name="description"
+                rows={6}
+                defaultValue={community.description ?? ""}
+                placeholder="A paragraph or two about this community — how it came together, what makes it distinctive, or a bit of its history."
+                className={`${inputCls} resize-y leading-relaxed`}
+              />
+            </Field>
+
+            <Field
+              label="Street names"
+              error={fieldErrors.street_names}
+              hint="One street per line. Saved trimmed and de-duplicated."
+            >
+              <textarea
+                name="street_names"
+                rows={5}
+                defaultValue={community.street_names.join("\n")}
+                placeholder={"Maple Lane\nOak Circle\nHickory Court"}
+                className={`${inputCls} resize-y font-mono text-[13px] leading-5`}
+              />
+            </Field>
+
             <label className="mt-1 flex cursor-pointer items-start gap-3 rounded-md border border-border bg-surface px-3 py-3 text-sm">
               <input
                 type="checkbox"
@@ -1529,7 +1368,7 @@ export function EditCommunityDrawer({
             >
               Cancel
             </button>
-            <SubmitButton disabled={uploading || sitePlanUploading} />
+            <SubmitButton disabled={sitePlanUploading || logoUploading} />
           </footer>
         </form>
       </aside>

@@ -121,6 +121,9 @@ export async function createCommunity(
   const numHomes = parseOptionalNonNegInt(formData, "num_homes");
   if (numHomes.error) fieldErrors.num_homes = numHomes.error;
 
+  const descriptionRaw = String(formData.get("description") ?? "").trim();
+  const description = descriptionRaw.length ? descriptionRaw : null;
+
   if (Object.keys(fieldErrors).length > 0) {
     return {
       status: "error",
@@ -162,6 +165,7 @@ export async function createCommunity(
     date_started: dateStarted,
     date_completed: dateCompleted,
     num_homes: numHomes.value,
+    description,
     address_id: address.id,
   });
 

@@ -346,9 +346,10 @@ function Lightbox({
       {total > 1 && (
         <div className="hidden border-t border-white/10 px-4 py-3 sm:block">
           {/* `overflow-x-auto` implicitly forces `overflow-y: auto`, which
-              would clip the 2px selected-ring on the top/bottom edge of the
-              active thumbnail. `py-1` reserves that breathing room. */}
-          <div className="mx-auto flex max-w-5xl gap-2 overflow-x-auto py-1">
+              would clip the 2px selected-ring on the edges of the active
+              thumbnail. `py-1` + `px-1` reserve that breathing room on all
+              four sides so the ring isn't cut off on the first/last tile. */}
+          <div className="mx-auto flex max-w-5xl gap-2 overflow-x-auto px-1 py-1">
             {photos.map((p, i) => (
               <button
                 key={p.id}

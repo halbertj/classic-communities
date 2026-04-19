@@ -20,10 +20,14 @@ export default async function AdminCommunitiesPage() {
         date_started,
         date_completed,
         num_homes,
+        description,
         cover_photo_path,
         site_plan_path,
         logo_path,
         starred,
+        archived,
+        archived_at,
+        street_names,
         created_at,
         address:addresses (
           id,
@@ -35,11 +39,34 @@ export default async function AdminCommunitiesPage() {
           country,
           latitude,
           longitude
-        )
+        ),
+        photos:community_photos ( storage_path, display_order, created_at )
       `,
     )
+    // Archived at the bottom, starred at the top, then alphabetical.
+    .order("archived", { ascending: true })
     .order("starred", { ascending: false })
     .order("name");
+
+  // The first gallery photo is the community's cover. We only fall back to
+  // the legacy `cover_photo_path` column for communities whose gallery is
+  // still empty, so a single source of truth drives the admin thumbnail.
+  const firstGalleryPhoto = (
+    photos: Array<{
+      storage_path: string;
+      display_order: number;
+      created_at: string;
+    }> | null,
+  ): string | null => {
+    if (!photos || photos.length === 0) return null;
+    const sorted = [...photos].sort((a, b) => {
+      if (a.display_order !== b.display_order) {
+        return a.display_order - b.display_order;
+      }
+      return a.created_at.localeCompare(b.created_at);
+    });
+    return sorted[0].storage_path;
+  };
 
   const communities: CommunityWithAddress[] = (data ?? []).map((row) => ({
     id: row.id,
@@ -49,10 +76,14 @@ export default async function AdminCommunitiesPage() {
     date_started: row.date_started,
     date_completed: row.date_completed,
     num_homes: row.num_homes,
-    cover_photo_path: row.cover_photo_path,
+    description: row.description,
+    cover_photo_path: firstGalleryPhoto(row.photos) ?? row.cover_photo_path,
     site_plan_path: row.site_plan_path,
     logo_path: row.logo_path,
     starred: row.starred,
+    archived: row.archived,
+    archived_at: row.archived_at,
+    street_names: row.street_names ?? [],
     created_at: row.created_at,
     address: row.address
       ? {

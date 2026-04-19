@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AboutGallery } from "@/components/AboutGallery";
 import { HomeMapSection } from "@/components/HomeMapSection";
 import type { MapCommunity } from "@/components/CommunitiesMap";
+import { SiteFooter } from "@/components/SiteFooter";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -59,6 +60,8 @@ async function loadCommunities(): Promise<{
         photos:community_photos ( storage_path, display_order, created_at )
       `,
     )
+    // Archived (soft-deleted) communities never appear on the public site.
+    .eq("archived", false)
     .order("name");
 
   if (error || !data) {
@@ -74,23 +77,26 @@ async function loadCommunities(): Promise<{
     const addr = c.address;
     // Bucket is public, so `getPublicUrl` is a pure string builder — no
     // network round-trip per community.
-    const coverUrl = c.cover_photo_path ? publicUrl(c.cover_photo_path) : null;
 
-    // Photo gallery URLs for the map popup: cover first (if any), then
-    // gallery photos in the admin-curated order. Any photo whose storage
-    // path matches the cover is skipped so we don't duplicate the first
-    // slide.
+    // The cover is whichever photo sits first in the gallery. We fall
+    // back to the legacy `cover_photo_path` column only for communities
+    // that haven't uploaded a gallery yet, which keeps a single source
+    // of truth and — critically — prevents the map popup from showing
+    // the same image twice.
     const orderedPhotos = [...(c.photos ?? [])].sort((a, b) => {
       if (a.display_order !== b.display_order) {
         return a.display_order - b.display_order;
       }
       return a.created_at.localeCompare(b.created_at);
     });
-    const photoUrls: string[] = [];
-    if (coverUrl) photoUrls.push(coverUrl);
-    for (const p of orderedPhotos) {
-      if (p.storage_path === c.cover_photo_path) continue;
-      photoUrls.push(publicUrl(p.storage_path));
+    const photoUrls: string[] = orderedPhotos.map((p) =>
+      publicUrl(p.storage_path),
+    );
+    const coverUrl =
+      photoUrls[0] ??
+      (c.cover_photo_path ? publicUrl(c.cover_photo_path) : null);
+    if (photoUrls.length === 0 && coverUrl) {
+      photoUrls.push(coverUrl);
     }
 
     if (
@@ -142,13 +148,25 @@ export default async function HomePage() {
           className="object-cover"
         />
 
-        {/* Minimal top-right nav, sits above the overlays */}
+        {/* Minimal top-right nav, sits above the overlays. Kept inline
+            (rather than reusing <SiteHeader />) so the hero can stay
+            logo-free on the left and let the centered wordmark carry
+            the composition. */}
         <nav className="absolute right-6 top-6 z-20 flex items-center gap-6 text-xs uppercase tracking-[3px] text-white/90">
           <Link href="/communities" className="hover:text-white">
             Communities
           </Link>
-          <Link href="/sign-in" className="hover:text-white">
-            Sign in
+          <Link
+            href="/story"
+            className="hidden hover:text-white sm:inline"
+          >
+            Story
+          </Link>
+          <Link
+            href="/#about"
+            className="hidden hover:text-white sm:inline"
+          >
+            About
           </Link>
         </nav>
 
@@ -263,6 +281,52 @@ export default async function HomePage() {
       )}
 
       <section
+        id="story"
+        className="border-t border-border bg-background px-6 py-16 sm:py-24"
+      >
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-2 lg:gap-16">
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-surface shadow-[0_20px_60px_-24px_rgba(15,23,42,0.35)] ring-1 ring-black/5">
+            <Image
+              src="/story/founders.png"
+              alt="Doug Halbert, Virginia Halbert, and Jim Halbert in front of a Classic home"
+              fill
+              sizes="(min-width: 1024px) 560px, 100vw"
+              className="object-cover"
+            />
+          </div>
+
+          <div>
+            <p className="text-xs uppercase tracking-[4px] text-muted">
+              The story
+            </p>
+            <h2 className="mt-2 font-serif text-3xl font-semibold sm:text-4xl">
+              A family-built legacy
+            </h2>
+            <div className="mt-5 space-y-4 text-[17px] leading-relaxed text-foreground/85">
+              <p>
+                Classic Communities began as a family company — founded by
+                Virginia Halbert and carried forward by her sons Jim and Doug,
+                who grew it into one of Central Pennsylvania&apos;s most
+                trusted home builders.
+              </p>
+              <p>
+                Over the decades, the team helped shape dozens of
+                neighborhoods and welcomed thousands of families into homes
+                they&apos;re still proud of today.
+              </p>
+            </div>
+            <Link
+              href="/story"
+              className="mt-7 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+            >
+              Read the story
+              <span aria-hidden>→</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section
         id="about"
         className="border-t border-border bg-surface px-6 py-20 sm:py-28"
       >
@@ -284,6 +348,11 @@ export default async function HomePage() {
                 on the neighborhoods he helped shape, on the team he led, and
                 on the thousands of families who call a Classic community home.
               </p>
+              <p>
+                He left behind a legacy of kindness, quiet generosity, and a
+                deep love for his family. I&apos;m inspired every day by his
+                vision and his entrepreneurship.
+              </p>
             </div>
             <p className="mt-8 font-serif text-lg italic text-foreground/80">
               — Jacob Halbert
@@ -293,6 +362,8 @@ export default async function HomePage() {
           <AboutGallery photos={ABOUT_PHOTOS} />
         </div>
       </section>
+
+      <SiteFooter />
     </>
   );
 }

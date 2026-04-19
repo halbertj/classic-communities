@@ -1,11 +1,11 @@
-import Image from "next/image";
-import Link from "next/link";
-
 import type { MapCommunity } from "@/components/CommunitiesMap";
 import { HomeMapSection } from "@/components/HomeMapSection";
+import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database.types";
+
+import { CommunitiesGrid, type CommunityCard } from "./CommunitiesGrid";
 
 type CommunityType = Database["public"]["Enums"]["community_type"];
 
@@ -43,6 +43,8 @@ export default async function CommunitiesPage() {
         photos:community_photos ( storage_path, display_order, created_at )
       `,
     )
+    // Archived (soft-deleted) communities never appear on the public site.
+    .eq("archived", false)
     .order("name");
 
   // `community-photos` is a public bucket, so `getPublicUrl` is a pure
@@ -53,10 +55,11 @@ export default async function CommunitiesPage() {
           .publicUrl
       : null;
 
-  // Build the ordered popup gallery: cover first, then admin-ordered
-  // gallery photos, with the cover de-duped if it also lives in the
-  // photos table. Same logic as on the home page.
-  const photoUrlsFor = (c: {
+  // Ordered gallery URLs. The first photo is the community's cover — it
+  // powers the card thumbnail and leads the map popup — so we don't
+  // include a separate `cover_photo_path` entry. Legacy cover-only
+  // communities (no gallery rows) fall back to the column value.
+  const orderedPhotoUrlsFor = (c: {
     cover_photo_path: string | null;
     photos: Array<{
       storage_path: string;
@@ -64,26 +67,63 @@ export default async function CommunitiesPage() {
       created_at: string;
     }> | null;
   }): string[] => {
-    const urls: string[] = [];
-    const cover = coverUrlFor(c.cover_photo_path);
-    if (cover) urls.push(cover);
     const ordered = [...(c.photos ?? [])].sort((a, b) => {
       if (a.display_order !== b.display_order) {
         return a.display_order - b.display_order;
       }
       return a.created_at.localeCompare(b.created_at);
     });
-    for (const p of ordered) {
-      if (p.storage_path === c.cover_photo_path) continue;
-      const url = coverUrlFor(p.storage_path);
-      if (url) urls.push(url);
+    const urls = ordered
+      .map((p) => coverUrlFor(p.storage_path))
+      .filter((u): u is string => u !== null);
+    if (urls.length === 0) {
+      const legacy = coverUrlFor(c.cover_photo_path);
+      if (legacy) urls.push(legacy);
     }
     return urls;
   };
 
+  // Only surface communities with at least one photo. A community without
+  // any imagery would render as an empty card / photo-less map popup, so
+  // we exclude them from the public listing entirely.
+  const communitiesWithCover = (communities ?? []).filter(
+    (c) => orderedPhotoUrlsFor(c).length > 0,
+  );
+
+  // Flatten into display-ready card props so the (client) search grid
+  // doesn't need to know anything about Supabase shapes or storage URLs.
+  const cards: CommunityCard[] = communitiesWithCover.map((c) => {
+    const yearStart = formatYear(c.date_started);
+    const yearEnd = formatYear(c.date_completed);
+    const years =
+      yearStart && yearEnd
+        ? yearStart === yearEnd
+          ? yearStart
+          : `${yearStart}–${yearEnd}`
+        : (yearStart ?? yearEnd ?? null);
+
+    const typeLabel = c.community_type ? TYPE_LABEL[c.community_type] : null;
+    const locationLabel = c.address
+      ? `${c.address.city}, ${c.address.state}`
+      : null;
+
+    return {
+      id: c.id,
+      name: c.name,
+      slug: c.slug,
+      typeLabel,
+      locationLabel,
+      years,
+      coverUrl: orderedPhotoUrlsFor(c)[0] ?? null,
+      searchText: [c.name, locationLabel ?? "", typeLabel ?? ""]
+        .join(" ")
+        .toLowerCase(),
+    };
+  });
+
   // Build the subset of communities that have coordinates so the map can
   // plot them. Same shape as on the home page.
-  const mappedCommunities: MapCommunity[] = (communities ?? [])
+  const mappedCommunities: MapCommunity[] = communitiesWithCover
     .filter(
       (c) =>
         c.address &&
@@ -99,7 +139,7 @@ export default async function CommunitiesPage() {
       state: c.address!.state,
       latitude: c.address!.latitude as number,
       longitude: c.address!.longitude as number,
-      photo_urls: photoUrlsFor(c),
+      photo_urls: orderedPhotoUrlsFor(c),
     }));
 
   return (
@@ -109,7 +149,7 @@ export default async function CommunitiesPage() {
         <div className="mx-auto w-full max-w-5xl px-6 pt-16">
           <header>
             <p className="text-xs uppercase tracking-[4px] text-muted">
-              Our work
+              Portfolio
             </p>
             <h1 className="mt-2 font-serif text-4xl font-semibold sm:text-5xl">
               Communities
@@ -137,82 +177,17 @@ export default async function CommunitiesPage() {
             <p className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               Couldn&apos;t load communities: {error.message}
             </p>
-          ) : !communities || communities.length === 0 ? (
+          ) : cards.length === 0 ? (
             <p className="text-muted">
               No communities to show yet. Check back soon.
             </p>
           ) : (
-            <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {communities.map((c) => {
-                const yearStart = formatYear(c.date_started);
-                const yearEnd = formatYear(c.date_completed);
-                const years =
-                  yearStart && yearEnd
-                    ? yearStart === yearEnd
-                      ? yearStart
-                      : `${yearStart}–${yearEnd}`
-                    : (yearStart ?? yearEnd ?? null);
-
-                const coverUrl = coverUrlFor(c.cover_photo_path);
-
-                return (
-                  <li key={c.id} className="h-full">
-                    <Link
-                      href={`/communities/${c.slug}`}
-                      className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-surface transition hover:border-primary"
-                    >
-                      <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface">
-                        {coverUrl ? (
-                          <Image
-                            src={coverUrl}
-                            alt=""
-                            fill
-                            // 3-up at ≥lg (max-w-5xl = 1024px → ~320px each),
-                            // 2-up at ≥sm, 1-up below. Matches the grid in the
-                            // surrounding <ul>.
-                            sizes="(min-width: 1024px) 320px, (min-width: 640px) 50vw, 100vw"
-                            className="object-cover transition duration-500 group-hover:scale-[1.03]"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-[3px] text-muted">
-                            No photo
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-5">
-                        <h2 className="text-lg font-semibold group-hover:text-primary">
-                          {c.name}
-                        </h2>
-                        <div className="mt-1 flex flex-wrap gap-x-2 text-sm text-muted">
-                          {c.community_type && (
-                            <span>{TYPE_LABEL[c.community_type]}</span>
-                          )}
-                          {c.address && (
-                            <>
-                              {c.community_type && <span>·</span>}
-                              <span>
-                                {c.address.city}, {c.address.state}
-                              </span>
-                            </>
-                          )}
-                          {years && (
-                            <>
-                              {(c.community_type || c.address) && (
-                                <span>·</span>
-                              )}
-                              <span>{years}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+            <CommunitiesGrid cards={cards} />
           )}
         </div>
       </main>
+
+      <SiteFooter />
     </>
   );
 }

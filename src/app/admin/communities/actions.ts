@@ -61,6 +61,29 @@ function parseOptionalNonNegInt(
   return { value: n };
 }
 
+/**
+ * Parse a newline-separated list of street names out of a textarea. Each
+ * non-empty line becomes an entry; we trim whitespace, drop blanks, and
+ * de-dupe case-insensitively (keeping the first occurrence's casing so
+ * admins stay in control of "Maple Ln" vs "Maple Lane"). Returns an
+ * empty array when the field is missing entirely — the DB column has a
+ * `not null default '{}'` so empty is fine.
+ */
+function parseStreetNames(formData: FormData, key: string): string[] {
+  const raw = String(formData.get(key) ?? "");
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const fingerprint = trimmed.toLocaleLowerCase();
+    if (seen.has(fingerprint)) continue;
+    seen.add(fingerprint);
+    out.push(trimmed);
+  }
+  return out;
+}
+
 export async function updateCommunity(
   _prev: UpdateCommunityState,
   formData: FormData,
@@ -121,21 +144,24 @@ export async function updateCommunity(
   const numHomes = parseOptionalNonNegInt(formData, "num_homes");
   if (numHomes.error) fieldErrors.num_homes = numHomes.error;
 
-  // `cover_photo_path` is a hidden field set by the drawer after a direct
-  // upload to Supabase Storage; "" means "remove the photo".
-  const newCoverPath = optionalStr(formData, "cover_photo_path");
+  // Description: optional long-form text. We keep the admin's raw newlines
+  // (trimmed at the edges only) so paragraph breaks survive a round-trip
+  // through the textarea.
+  const descriptionRaw = String(formData.get("description") ?? "").trim();
+  const description = descriptionRaw.length ? descriptionRaw : null;
 
-  // Same pattern as cover_photo_path, but against the
-  // `community-site-plans` bucket.
+  // Site plan hidden field, set by the drawer after a direct upload to
+  // the `community-site-plans` bucket; "" means "remove the site plan".
   const newSitePlanPath = optionalStr(formData, "site_plan_path");
 
-  // Same pattern as the other *_path fields, but against the
-  // `community-logos` bucket.
+  // Same pattern, against the `community-logos` bucket.
   const newLogoPath = optionalStr(formData, "logo_path");
 
   // Checkbox. An unchecked checkbox is omitted from FormData entirely,
   // so presence === true.
   const starred = formData.get("starred") != null;
+
+  const streetNames = parseStreetNames(formData, "street_names");
 
   if (Object.keys(fieldErrors).length > 0) {
     return {
@@ -149,7 +175,7 @@ export async function updateCommunity(
 
   const { data: existing, error: fetchErr } = await supabase
     .from("communities")
-    .select("id, slug, address_id, cover_photo_path, site_plan_path, logo_path")
+    .select("id, slug, address_id, site_plan_path, logo_path")
     .eq("id", id)
     .maybeSingle();
 
@@ -207,10 +233,11 @@ export async function updateCommunity(
       date_started: dateStarted,
       date_completed: dateCompleted,
       num_homes: numHomes.value,
-      cover_photo_path: newCoverPath,
+      description,
       site_plan_path: newSitePlanPath,
       logo_path: newLogoPath,
       starred,
+      street_names: streetNames,
       address_id: addressId,
     })
     .eq("id", id);
@@ -227,13 +254,7 @@ export async function updateCommunity(
     };
   }
 
-  // --- Housekeeping: remove the previous photo if it was replaced. ---
-  const oldPath = existing.cover_photo_path;
-  if (oldPath && oldPath !== newCoverPath) {
-    // Fire-and-forget; an orphaned object is cheaper than a failed save.
-    await supabase.storage.from("community-photos").remove([oldPath]);
-  }
-
+  // --- Housekeeping: remove replaced site-plan / logo storage objects. ---
   const oldSitePlanPath = existing.site_plan_path;
   if (oldSitePlanPath && oldSitePlanPath !== newSitePlanPath) {
     await supabase.storage
@@ -254,20 +275,23 @@ export async function updateCommunity(
   return { status: "success" };
 }
 
-export type SetCoverPhotoResult =
-  | { ok: true }
+export type ArchiveCommunityResult =
+  | { ok: true; archived: boolean }
   | { ok: false; message: string };
 
 /**
- * Inline cover-photo mutation for the admin list. Used by the drag-and-drop
- * slot in `CommunitiesTable` — lighter than `updateCommunity` because there
- * are no other fields to validate. Also cleans up the previous storage
- * object so we don't leak orphans.
+ * Soft-delete toggle for a community. Sets `archived` (and the matching
+ * `archived_at` timestamp) so the public site stops rendering it, while
+ * the admin table keeps the row around for future restoration.
+ *
+ * This is a lightweight single-field mutation — the admin UI gates it
+ * behind a double confirmation so an accidental click can't knock a
+ * community off the site.
  */
-export async function setCoverPhoto(
+export async function archiveCommunity(
   communityId: string,
-  path: string | null,
-): Promise<SetCoverPhotoResult> {
+  archived: boolean,
+): Promise<ArchiveCommunityResult> {
   await requireAdmin();
 
   if (typeof communityId !== "string" || !communityId) {
@@ -278,7 +302,7 @@ export async function setCoverPhoto(
 
   const { data: existing, error: fetchErr } = await supabase
     .from("communities")
-    .select("id, slug, cover_photo_path")
+    .select("id, slug")
     .eq("id", communityId)
     .maybeSingle();
   if (fetchErr || !existing) {
@@ -287,20 +311,19 @@ export async function setCoverPhoto(
 
   const { error: updateErr } = await supabase
     .from("communities")
-    .update({ cover_photo_path: path })
+    .update({
+      archived,
+      archived_at: archived ? new Date().toISOString() : null,
+    })
     .eq("id", communityId);
   if (updateErr) return { ok: false, message: updateErr.message };
 
-  const oldPath = existing.cover_photo_path;
-  if (oldPath && oldPath !== path) {
-    await supabase.storage.from("community-photos").remove([oldPath]);
-  }
-
   revalidatePath("/admin/communities");
+  revalidatePath("/");
   revalidatePath("/communities");
   revalidatePath(`/communities/${existing.slug}`);
 
-  return { ok: true };
+  return { ok: true, archived };
 }
 
 export type SetStarredResult =
