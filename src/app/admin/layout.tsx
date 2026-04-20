@@ -34,6 +34,9 @@ export default async function AdminLayout({
           >
             Communities
           </Link>
+          <Link href="/admin/users" className="text-muted hover:text-foreground">
+            Users
+          </Link>
           <form action="/sign-out" method="POST">
             <button
               type="submit"
