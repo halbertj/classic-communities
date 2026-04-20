@@ -182,20 +182,20 @@ export default async function HomePage() {
         {/* Hero content */}
         <div className="relative z-10 flex w-full max-w-[1100px] flex-col items-center px-6 text-center text-white">
           <p
-            className="whitespace-nowrap font-serif text-[32px] font-semibold uppercase tracking-[4px] text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
+            className="whitespace-nowrap font-serif text-[22px] font-semibold uppercase tracking-[3px] text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] sm:text-[32px] sm:tracking-[4px]"
             style={{ fontFamily: "var(--font-cinzel)" }}
           >
             The Legacy of
           </p>
 
-          <div className="mt-6 w-full sm:mt-8">
+          <div className="mt-4 w-full sm:mt-8">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/logowhite.svg"
               alt="Classic Communities"
               width={776}
               height={88}
-              className="mx-auto h-auto w-full max-w-[min(78vw,780px)] drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
+              className="mx-auto h-auto w-full max-w-[min(92vw,780px)] drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)] sm:max-w-[min(78vw,780px)]"
             />
           </div>
 

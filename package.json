@@ -11,6 +11,7 @@
     "import:communities": "tsx scripts/import-communities.ts"
   },
   "dependencies": {
+    "@fontsource/cinzel": "^5.2.8",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.3",
     "csv-parse": "^5.6.0",

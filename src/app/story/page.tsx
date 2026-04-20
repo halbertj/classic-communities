@@ -133,15 +133,39 @@ export default function StoryPage() {
                 <h2 className="font-serif text-2xl font-semibold text-foreground sm:text-3xl">
                   Thousands of homes, one at a time
                 </h2>
-                <p className="mt-4">
-                  Over the decades, the Classic team has built dozens of
-                  neighborhoods and welcomed thousands of families home. Each
-                  community has its own character, but the approach has never
-                  changed — careful craftsmanship, honest work, and a
-                  long-term commitment to the place it&apos;s in.
-                </p>
               </div>
+            </article>
+          </div>
 
+          <div className="mx-auto mt-8 w-full max-w-3xl sm:mt-10">
+            <p className="text-[17px] leading-relaxed text-foreground/85">
+              Over the decades, the Classic team has built dozens of
+              neighborhoods and welcomed thousands of families home. Each
+              community has its own character, but the approach has never
+              changed — careful craftsmanship, honest work, and a long-term
+              commitment to the place it&apos;s in.
+            </p>
+          </div>
+
+          <div className="mx-auto mt-8 w-full max-w-2xl sm:mt-10">
+            <figure className="space-y-3">
+              <div className="relative aspect-[3/2] w-full overflow-hidden rounded-xl bg-background shadow-[0_16px_48px_-24px_rgba(15,23,42,0.35)] ring-1 ring-black/5">
+                <Image
+                  src="/story/habitat-team.png"
+                  alt="Jim Halbert and three others on site in front of a Habitat for Humanity home, two in Classic Communities fleeces"
+                  fill
+                  sizes="(min-width: 1024px) 672px, 100vw"
+                  className="object-cover"
+                />
+              </div>
+              <figcaption className="text-center text-sm italic text-muted">
+                On site with the Classic team.
+              </figcaption>
+            </figure>
+          </div>
+
+          <div className="mx-auto mt-10 w-full max-w-3xl sm:mt-12">
+            <article className="space-y-10 text-[17px] leading-relaxed text-foreground/85">
               <div>
                 <h2 className="font-serif text-2xl font-semibold text-foreground sm:text-3xl">
                   Still family, still building
@@ -241,19 +265,18 @@ export default function StoryPage() {
               </div>
             </div>
 
-            {/* Three Habitat-era photos. On mobile they stack. On desktop
-                we lay them out 3-up with a gentle zigzag — the middle
-                figure is pushed down a row's worth of breathing room so
-                the whole group reads as an editorial spread rather than
-                a rigid grid. */}
-            <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {/* Two Habitat-era photos. On mobile they stack. On desktop
+                they sit 2-up with a gentle zigzag — the right figure is
+                pushed down for breathing room so the pair reads as an
+                editorial spread rather than a rigid grid. */}
+            <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
               <figure className="space-y-3">
                 <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5">
                   <Image
                     src="/story/habitat-blitz-2006.png"
                     alt="Doug Halbert and his son in front of a Home Builders Blitz 2006 banner at a Habitat for Humanity build"
                     fill
-                    sizes="(min-width: 1024px) 320px, 100vw"
+                    sizes="(min-width: 1024px) 480px, 100vw"
                     className="object-cover"
                   />
                 </div>
@@ -269,28 +292,13 @@ export default function StoryPage() {
                     src="/story/habitat-ribbon-cutting.png"
                     alt="Ribbon cutting for a Habitat for Humanity home built with Classic Communities Corporation"
                     fill
-                    sizes="(min-width: 1024px) 320px, 100vw"
+                    sizes="(min-width: 1024px) 480px, 100vw"
                     className="object-cover"
                   />
                 </div>
                 <figcaption className="text-sm italic text-muted">
                   Ribbon-cutting day, handing the keys to a new Habitat
                   homeowner.
-                </figcaption>
-              </figure>
-
-              <figure className="space-y-3">
-                <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5">
-                  <Image
-                    src="/story/habitat-team.png"
-                    alt="Jim Halbert and three others on site in front of a Habitat for Humanity home, two in Classic Communities fleeces"
-                    fill
-                    sizes="(min-width: 1024px) 320px, 100vw"
-                    className="object-cover"
-                  />
-                </div>
-                <figcaption className="text-sm italic text-muted">
-                  On site with the Classic team.
                 </figcaption>
               </figure>
             </div>
