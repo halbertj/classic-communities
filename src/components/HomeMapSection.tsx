@@ -21,7 +21,9 @@ export function HomeMapSection({
   showCta = true,
   className,
   maxWidthClass = "max-w-6xl",
-  mapHeightClass = "h-[560px]",
+  // Shorter on phones so the landing map doesn’t dominate the viewport;
+  // scale up from `sm` and match the original 560px from large screens.
+  mapHeightClass = "h-[360px] sm:h-[480px] lg:h-[560px]",
 }: {
   communities: MapCommunity[];
   totalCount: number;
