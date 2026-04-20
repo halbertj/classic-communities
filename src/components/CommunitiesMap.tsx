@@ -180,6 +180,8 @@ export default function CommunitiesMap({
     [communities],
   );
 
+  const [baseStyle, setBaseStyle] = useState<BaseStyle>(defaultBaseStyle);
+
   if (points.length === 0) {
     return (
       <div className="flex h-full items-center justify-center bg-surface text-sm text-muted">
@@ -191,7 +193,6 @@ export default function CommunitiesMap({
   // Default center (Harrisburg, PA area) — FitBounds will adjust immediately.
   const defaultCenter: [number, number] = [40.2732, -76.8867];
 
-  const [baseStyle, setBaseStyle] = useState<BaseStyle>(defaultBaseStyle);
   const useMapbox = MAPBOX_TOKEN.length > 0;
   const config = TILE_CONFIGS[baseStyle];
 

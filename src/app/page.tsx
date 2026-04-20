@@ -212,7 +212,11 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <HomeMapSection communities={mapped} totalCount={total} />
+      <HomeMapSection
+        communities={mapped}
+        totalCount={total}
+        showCta={featured.length === 0}
+      />
 
       {featured.length > 0 && (
         <section className="border-t border-border bg-background px-6 py-16 sm:py-24">
@@ -222,7 +226,7 @@ export default async function HomePage() {
                 Featured
               </p>
               <h2 className="mt-2 font-serif text-3xl font-semibold sm:text-4xl">
-                A closer look
+                Community spotlight
               </h2>
               <p className="mt-3 max-w-xl text-sm text-muted">
                 The best of Classic Communities
@@ -276,6 +280,28 @@ export default async function HomePage() {
                 </li>
               ))}
             </ul>
+
+            <div className="mt-12 flex justify-center">
+              <Link
+                href="/communities"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                See All Communities
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden="true"
+                  className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10.293 4.293a1 1 0 011.414 0l5 5a1 1 0 010 1.414l-5 5a1 1 0 01-1.414-1.414L13.586 11H4a1 1 0 110-2h9.586l-3.293-3.293a1 1 0 010-1.414z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </Link>
+            </div>
           </div>
         </section>
       )}
