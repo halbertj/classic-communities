@@ -261,8 +261,7 @@ export default async function CommunityDetailPage({ params }: PageProps) {
               in. We render with `whitespace-pre-line` so paragraph breaks
               from the textarea survive without pulling in a markdown
               parser. If no description is set yet, we fall back to the
-              auto-generated one-liner plus a "coming soon" nudge so the
-              page never feels empty. */}
+              auto-generated one-liner. */}
           <div className="mt-8 max-w-2xl space-y-4 text-[15px] leading-relaxed text-foreground/90">
             <h2 className="font-serif text-2xl font-semibold text-foreground">
               About this community
@@ -270,24 +269,17 @@ export default async function CommunityDetailPage({ params }: PageProps) {
             {community.description ? (
               <p className="whitespace-pre-line">{community.description}</p>
             ) : (
-              <>
-                <p>
-                  {community.name} is
-                  {typeLabel
-                    ? ` a ${typeLabel.toLowerCase()} community`
-                    : " a community"}
-                  {locationLine ? ` in ${locationLine}` : ""}
-                  {years ? `, built ${years}` : ""}. Designed and developed
-                  by Classic Communities, it carries the same craft, care,
-                  and neighborhood-first planning that defines the Classic
-                  portfolio.
-                </p>
-                <p className="text-muted">
-                  A longer write-up — the story of the land, the floor plans
-                  offered here, and the families who&apos;ve called it home —
-                  will live here soon.
-                </p>
-              </>
+              <p>
+                {community.name} is
+                {typeLabel
+                  ? ` a ${typeLabel.toLowerCase()} community`
+                  : " a community"}
+                {locationLine ? ` in ${locationLine}` : ""}
+                {years ? `, built ${years}` : ""}. Designed and developed
+                by Classic Communities, it carries the same craft, care,
+                and neighborhood-first planning that defines the Classic
+                portfolio.
+              </p>
             )}
           </div>
         </section>
