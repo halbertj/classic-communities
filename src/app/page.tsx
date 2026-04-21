@@ -200,7 +200,7 @@ export default async function HomePage() {
           </div>
 
           <p className="mt-10 max-w-[860px] text-balance text-[17px] font-normal leading-relaxed text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)] sm:text-[19px]">
-            A tribute to my grandma Virginia Halbert, my dad Jim, my uncle Doug, and the Classic Team who together built homes for thousands of families across Central Pennsylvania
+            A tribute to the Classic Team who together built homes for thousands of families across Central Pennsylvania
           </p>
 
           <a
