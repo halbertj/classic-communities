@@ -97,17 +97,39 @@ export default function StoryPage() {
                   </figcaption>
                 </figure>
                 <p className="mt-4">
-                  Her sons Jim and Doug grew up on the job sites — running
-                  blueprints, framing walls, and learning the trade from the
-                  inside out. Together they carried the company into its next
-                  chapter, expanding across Central Pennsylvania while
-                  keeping the culture that made it feel like family.
+                  Her sons Jim and Doug started out on the job sites —
+                  running blueprints, framing walls, and learning the trade
+                  from the inside out. Together they carried the company
+                  into its next chapter, expanding across Central
+                  Pennsylvania while keeping the culture that made it feel
+                  like family.
                 </p>
                 {/* Clear the float so subsequent blocks start below the
                     card, regardless of paragraph length. */}
                 <div className="clear-both" />
               </div>
             </article>
+          </div>
+
+          {/* Jim and Doug — the two brothers themselves, sitting between
+              the "second generation" paragraph and the wider team photo
+              so the section moves: family card → the brothers → the
+              team they grew. */}
+          <div className="mx-auto mt-10 w-full max-w-2xl sm:mt-14">
+            <figure className="space-y-3">
+              <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-background shadow-[0_20px_60px_-28px_rgba(15,23,42,0.4)] ring-1 ring-black/5">
+                <Image
+                  src="/story/jim-doug.png"
+                  alt="Jim Halbert and Doug Halbert standing together at the foot of a curved staircase"
+                  fill
+                  sizes="(min-width: 1024px) 672px, 100vw"
+                  className="object-cover"
+                />
+              </div>
+              <figcaption className="text-center text-sm italic text-muted">
+                Brothers Jim and Doug Halbert.
+              </figcaption>
+            </figure>
           </div>
 
           <div className="mx-auto mt-12 w-full max-w-5xl sm:mt-16">
