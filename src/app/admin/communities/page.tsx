@@ -101,7 +101,7 @@ export default async function AdminCommunitiesPage() {
   }));
 
   return (
-    <div className="mx-auto w-full max-w-5xl">
+    <div className="mx-auto w-full max-w-6xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Communities</h1>
