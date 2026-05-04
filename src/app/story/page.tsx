@@ -225,6 +225,12 @@ export default function StoryPage() {
                   the early 1990s. A scan of the clipping is preserved here,
                   a small record of the start of a much longer story.
                 </p>
+                <p>
+                  Jim laid out the neighborhood on the original site plan
+                  himself — his handwriting still sits at the top of the
+                  page: <em>Classic Communities Corp — Creekside — Lebanon,
+                  Pa</em>.
+                </p>
               </div>
               <Link
                 href="/communities/creekside"
@@ -235,26 +241,49 @@ export default function StoryPage() {
               </Link>
             </div>
 
-            <figure className="space-y-3">
-              <a
-                href="/story/creekside-article.png"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group block overflow-hidden rounded-xl border border-border bg-background ring-1 ring-black/5"
-                aria-label="Open Creekside article scan in a new tab"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/story/creekside-article.png"
-                  alt="Newspaper feature headlined “Villages of Creekside — Make-believe family dwells in model home,” by Pat Seaman, with photos by Earl Brightbill"
-                  className="h-full w-full object-contain transition duration-500 group-hover:scale-[1.02]"
-                />
-              </a>
-              <figcaption className="text-sm italic text-muted">
-                Daily News feature on the opening of The Villages of
-                Creekside model home.
-              </figcaption>
-            </figure>
+            <div className="space-y-8">
+              <figure className="space-y-3">
+                <a
+                  href="/story/creekside-article.png"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group block overflow-hidden rounded-xl border border-border bg-background ring-1 ring-black/5"
+                  aria-label="Open Creekside article scan in a new tab"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/story/creekside-article.png"
+                    alt="Newspaper feature headlined “Villages of Creekside — Make-believe family dwells in model home,” by Pat Seaman, with photos by Earl Brightbill"
+                    className="h-full w-full object-contain transition duration-500 group-hover:scale-[1.02]"
+                  />
+                </a>
+                <figcaption className="text-sm italic text-muted">
+                  Daily News feature on the opening of The Villages of
+                  Creekside model home.
+                </figcaption>
+              </figure>
+
+              <figure className="space-y-3">
+                <a
+                  href="/story/creekside-site-plan.png"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group block overflow-hidden rounded-xl border border-border bg-background ring-1 ring-black/5"
+                  aria-label="Open Creekside site plan in a new tab"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/story/creekside-site-plan.png"
+                    alt="Original hand-annotated site plan for The Villages of Creekside in Lebanon, PA, labeled at the top in Jim Halbert's handwriting: Classic Communities Corp — Creekside — Lebanon, Pa"
+                    className="h-full w-full object-contain transition duration-500 group-hover:scale-[1.02]"
+                  />
+                </a>
+                <figcaption className="text-sm italic text-muted">
+                  The original Creekside site plan, labeled in Jim&apos;s
+                  hand.
+                </figcaption>
+              </figure>
+            </div>
           </div>
         </section>
 
