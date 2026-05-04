@@ -32,19 +32,24 @@ export default function StoryPage() {
             </p>
           </div>
 
-          <div className="mx-auto mt-10 w-full max-w-5xl">
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-surface shadow-[0_24px_80px_-28px_rgba(15,23,42,0.4)] ring-1 ring-black/5 sm:aspect-[16/10]">
-              <Image
-                src="/story/founders.png"
-                alt="Doug Halbert, Virginia Halbert, and Jim Halbert in front of a Classic home"
-                fill
-                priority
-                sizes="(min-width: 1024px) 960px, 100vw"
-                className="object-cover"
+          <div className="mx-auto mt-10 w-full max-w-xs sm:max-w-sm">
+            <a
+              href="/story/builder-architect-2004.png"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group block overflow-hidden rounded-2xl border border-border bg-background shadow-[0_24px_80px_-28px_rgba(15,23,42,0.4)] ring-1 ring-black/5"
+              aria-label="Open Builder/Architect, April 2004 cover in a new tab"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/story/builder-architect-2004.png"
+                alt="Cover of Builder/Architect magazine, Central Pennsylvania Edition, April 2004, with James Halbert, Virginia Halbert, and Douglas Halbert standing in front of a stone-front Classic Communities home, headlined Classic Communities Building and Development — Style and Value in Great Locations"
+                className="h-full w-full object-contain transition duration-500 group-hover:scale-[1.01]"
               />
-            </div>
+            </a>
             <p className="mt-4 text-center text-sm italic text-muted">
-              Doug, Virginia, and Jim Halbert in front of a Classic home.
+              Jim, Virginia, and Doug on the cover of{" "}
+              <em>Builder/Architect</em>, April 2004.
             </p>
           </div>
         </section>
@@ -67,10 +72,13 @@ export default function StoryPage() {
                   It started with Virginia
                 </h2>
                 <p className="mt-4">
-                  Classic Communities was founded by Virginia Halbert, who
-                  built the company from the ground up with a simple
-                  philosophy: build homes the way you&apos;d want to live in
-                  them, and treat every family like a neighbor.
+                  Classic Communities began in the mid-1980s with Virginia
+                  Halbert, who started out buying and renovating homes
+                  around Lebanon, Pennsylvania. Over time that work grew
+                  into new construction and whole neighborhoods, and
+                  Classic Communities Corporation was born — built on a
+                  simple philosophy: build homes the way you&apos;d want
+                  to live in them, and treat every family like a neighbor.
                 </p>
               </div>
 
@@ -97,12 +105,27 @@ export default function StoryPage() {
                   </figcaption>
                 </figure>
                 <p className="mt-4">
-                  Her sons Jim and Doug started out on the job sites —
-                  running blueprints, framing walls, and learning the trade
-                  from the inside out. Together they carried the company
-                  into its next chapter, expanding across Central
-                  Pennsylvania while keeping the culture that made it feel
-                  like family.
+                  Jim studied law at the University of Miami and
+                  graduated in 1993. The next year, he came home to
+                  Pennsylvania to work with his mom.
+                </p>
+                <p className="mt-4">
+                  He started in 1994 in the field — framing houses,
+                  building decks, hanging drywall. Two years on the job
+                  site, doing the same work as the framers and masons
+                  and finishers. That&apos;s where he learned how a
+                  house actually goes together, and it&apos;s where he
+                  earned the trust of the trades Classic kept working
+                  with for the next twenty years.
+                </p>
+                <p className="mt-4">
+                  In 1996 he moved into Director of Development, and in
+                  2004 he became CEO. Doug joined around the same time
+                  as President. Together the brothers pushed Classic
+                  out of Lebanon
+                  into the greater Harrisburg area, got into
+                  multi-family, and acquired Fogarty Homes — without
+                  losing the family feel of the place.
                 </p>
                 {/* Clear the float so subsequent blocks start below the
                     card, regardless of paragraph length. */}
@@ -128,6 +151,24 @@ export default function StoryPage() {
               </div>
               <figcaption className="text-center text-sm italic text-muted">
                 Brothers Jim and Doug Halbert.
+              </figcaption>
+            </figure>
+          </div>
+
+          <div className="mx-auto mt-10 w-full max-w-2xl sm:mt-14">
+            <figure className="space-y-3">
+              <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-background shadow-[0_20px_60px_-28px_rgba(15,23,42,0.4)] ring-1 ring-black/5">
+                <Image
+                  src="/story/founders.png"
+                  alt="Jim Halbert, Virginia Halbert, and Doug Halbert standing together in front of a stone-and-siding Classic home"
+                  fill
+                  sizes="(min-width: 1024px) 672px, 100vw"
+                  className="object-cover"
+                />
+              </div>
+              <figcaption className="text-center text-sm italic text-muted">
+                Jim, Virginia, and Doug — years on, in front of another
+                Classic home.
               </figcaption>
             </figure>
           </div>
@@ -161,11 +202,12 @@ export default function StoryPage() {
 
           <div className="mx-auto mt-8 w-full max-w-3xl sm:mt-10">
             <p className="text-[17px] leading-relaxed text-foreground/85">
-              Over the decades, the Classic team has built dozens of
-              neighborhoods and welcomed thousands of families home. Each
-              community has its own character, but the approach has never
-              changed — careful craftsmanship, honest work, and a long-term
-              commitment to the place it&apos;s in.
+              Over its three decades, Classic grew to a team of 57,
+              developed over 70 communities across Central
+              Pennsylvania, and built an in-house rental portfolio of
+              over 300 units. Each community had its own character, but
+              the approach never changed — careful craftsmanship, honest
+              work, and a long-term commitment to the place it was in.
             </p>
           </div>
 
@@ -190,13 +232,15 @@ export default function StoryPage() {
             <article className="space-y-10 text-[17px] leading-relaxed text-foreground/85">
               <div>
                 <h2 className="font-serif text-2xl font-semibold text-foreground sm:text-3xl">
-                  Still family, still building
+                  The end of a chapter
                 </h2>
                 <p className="mt-4">
-                  Today, Classic Communities continues the work Virginia
-                  started — led by the same family, supported by the same
-                  long-tenured team, building the next generation of
-                  neighborhoods in Central PA.
+                  Classic Communities wound down in 2015, after more
+                  than twenty years of building across Central
+                  Pennsylvania. What it left behind is the homes
+                  themselves, the neighborhoods they sit in, and the
+                  families still living in them — which was always the
+                  point.
                 </p>
               </div>
             </article>
@@ -377,8 +421,23 @@ export default function StoryPage() {
             </p>
           </div>
 
-          {/* --- 2010 --- */}
+          {/* --- 2004 --- */}
           <div className="mx-auto mt-12 w-full max-w-3xl text-center sm:mt-16">
+            <p className="font-serif text-xl font-semibold text-foreground/90">
+              2004
+            </p>
+            <div className="mx-auto mt-3 max-w-2xl space-y-4 text-[17px] leading-relaxed text-foreground/85">
+              <p>
+                Classic was the cover story of the April 2004 Central
+                Pennsylvania edition of <em>Builder/Architect</em>, with
+                Jim, Virginia, and Doug photographed together in front of
+                a Classic home.
+              </p>
+            </div>
+          </div>
+
+          {/* --- 2010 --- */}
+          <div className="mx-auto mt-16 w-full max-w-3xl text-center sm:mt-20">
             <p className="font-serif text-xl font-semibold text-foreground/90">
               2010
             </p>
