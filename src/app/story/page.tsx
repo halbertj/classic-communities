@@ -358,10 +358,10 @@ export default function StoryPage() {
 
         {/* ---------------- Recognition ---------------- */}
         {/*
-          Two 2014 honors sit under one roof here so the "Recognition"
-          eyebrow doesn't read like a single-entry section. Only the
-          Housing Giants ranking has a visual artifact; the Pyramid Award
-          is a short text-only mention beneath it.
+          Two dated entries — 2010 and 2014 — under one "Recognition"
+          eyebrow. Each entry pairs a short prose block with its visual
+          artifact (magazine cover, ranking page). The Pyramid Award is
+          text-only, tucked under the 2014 ranking.
         */}
         <section className="border-t border-border bg-surface px-6 py-16 sm:py-24">
           <div className="mx-auto w-full max-w-3xl text-center">
@@ -369,9 +369,57 @@ export default function StoryPage() {
               Recognition
             </p>
             <h2 className="mt-3 font-serif text-3xl font-semibold sm:text-4xl">
-              2014
+              In the trade
             </h2>
-            <div className="mx-auto mt-5 max-w-2xl space-y-4 text-[17px] leading-relaxed text-foreground/85">
+            <p className="mx-auto mt-4 max-w-xl text-sm text-muted">
+              A few of the years Classic and the family showed up in the
+              industry record.
+            </p>
+          </div>
+
+          {/* --- 2010 --- */}
+          <div className="mx-auto mt-12 w-full max-w-3xl text-center sm:mt-16">
+            <p className="font-serif text-xl font-semibold text-foreground/90">
+              2010
+            </p>
+            <div className="mx-auto mt-3 max-w-2xl space-y-4 text-[17px] leading-relaxed text-foreground/85">
+              <p>
+                Jim appears on the cover of <em>The Home Builder</em>, the
+                magazine of the Home Builders Association of Metropolitan
+                Harrisburg, in the group photo from the association&apos;s
+                Economic Impact Study — a study showing what home building
+                contributes to the Harrisburg-area economy.
+              </p>
+            </div>
+          </div>
+
+          <figure className="mx-auto mt-8 w-full max-w-md space-y-3 sm:mt-10">
+            <a
+              href="/story/home-builder-2010.png"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group block overflow-hidden rounded-xl border border-border bg-background shadow-[0_20px_60px_-28px_rgba(15,23,42,0.35)] ring-1 ring-black/5"
+              aria-label="Open The Home Builder, March 2010 cover in a new tab"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/story/home-builder-2010.png"
+                alt="Cover of The Home Builder magazine, Volume 19 Number 3, March 2010, published by the Home Builders Association of Metropolitan Harrisburg, with Jim Halbert pictured in the bottom group photo accompanying the Economic Impact Study"
+                className="h-full w-full object-contain transition duration-500 group-hover:scale-[1.02]"
+              />
+            </a>
+            <figcaption className="text-center text-sm italic text-muted">
+              <em>The Home Builder</em>, March 2010 — Jim is in the bottom
+              group photo.
+            </figcaption>
+          </figure>
+
+          {/* --- 2014 --- */}
+          <div className="mx-auto mt-16 w-full max-w-3xl text-center sm:mt-20">
+            <p className="font-serif text-xl font-semibold text-foreground/90">
+              2014
+            </p>
+            <div className="mx-auto mt-3 max-w-2xl space-y-4 text-[17px] leading-relaxed text-foreground/85">
               <p>
                 Classic Communities debuted on{" "}
                 <em>Professional Builder</em>&apos;s annual Housing Giants
@@ -387,7 +435,7 @@ export default function StoryPage() {
             </div>
           </div>
 
-          <figure className="mx-auto mt-10 w-full max-w-md space-y-3 sm:mt-14">
+          <figure className="mx-auto mt-8 w-full max-w-md space-y-3 sm:mt-10">
             <a
               href="/story/housing-giants-2014.png"
               target="_blank"

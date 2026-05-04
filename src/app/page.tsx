@@ -212,6 +212,66 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <section
+        id="story"
+        className="border-t border-border bg-background px-6 py-16 sm:py-24"
+      >
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-2 lg:gap-16">
+          {/* Builder/Architect cover, April 2004 — Jim, Virginia, and
+              Doug standing in front of a Classic home, with the headline
+              "Classic Communities Building and Development." Treated as a
+              magazine artifact: portrait container, object-contain so the
+              masthead and headline aren't cropped, click to open full
+              size. */}
+          <a
+            href="/story/builder-architect-2004.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group mx-auto block w-full max-w-md overflow-hidden rounded-2xl border border-border bg-background shadow-[0_20px_60px_-24px_rgba(15,23,42,0.35)] ring-1 ring-black/5 lg:mx-0"
+            aria-label="Open the full Builder/Architect April 2004 issue (PDF) in a new tab"
+          >
+            <div className="relative aspect-[3/4] w-full">
+              <Image
+                src="/story/builder-architect-2004.png"
+                alt="Cover of Builder/Architect magazine, Central Pennsylvania edition, April 2004, with James Halbert, Virginia Halbert, and Douglas Halbert standing in front of a Classic home, headlined Classic Communities Building and Development"
+                fill
+                sizes="(min-width: 1024px) 448px, (min-width: 640px) 448px, 100vw"
+                className="object-contain transition duration-500 group-hover:scale-[1.02]"
+              />
+            </div>
+          </a>
+
+          <div>
+            <p className="text-xs uppercase tracking-[4px] text-muted">
+              The story
+            </p>
+            <h2 className="mt-2 font-serif text-3xl font-semibold sm:text-4xl">
+              A family-built legacy
+            </h2>
+            <div className="mt-5 space-y-4 text-[17px] leading-relaxed text-foreground/85">
+              <p>
+                Classic Communities began as a family company — founded by
+                Virginia Halbert and carried forward by her sons Jim and Doug,
+                who grew it into one of Central Pennsylvania&apos;s most
+                trusted home builders.
+              </p>
+              <p>
+                Over the decades, the team helped shape dozens of
+                neighborhoods and welcomed thousands of families into homes
+                they&apos;re still proud of today.
+              </p>
+            </div>
+            <Link
+              href="/story"
+              className="mt-7 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+            >
+              Read the story
+              <span aria-hidden>→</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       <HomeMapSection
         communities={mapped}
         totalCount={total}
@@ -306,49 +366,32 @@ export default async function HomePage() {
         </section>
       )}
 
-      <section
-        id="story"
-        className="border-t border-border bg-background px-6 py-16 sm:py-24"
-      >
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-2 lg:gap-16">
-          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-surface shadow-[0_20px_60px_-24px_rgba(15,23,42,0.35)] ring-1 ring-black/5">
-            <Image
-              src="/story/founders.png"
-              alt="Doug Halbert, Virginia Halbert, and Jim Halbert in front of a Classic home"
-              fill
-              sizes="(min-width: 1024px) 560px, 100vw"
-              className="object-cover"
-            />
-          </div>
-
-          <div>
-            <p className="text-xs uppercase tracking-[4px] text-muted">
-              The story
-            </p>
-            <h2 className="mt-2 font-serif text-3xl font-semibold sm:text-4xl">
-              A family-built legacy
-            </h2>
-            <div className="mt-5 space-y-4 text-[17px] leading-relaxed text-foreground/85">
-              <p>
-                Classic Communities began as a family company — founded by
-                Virginia Halbert and carried forward by her sons Jim and Doug,
-                who grew it into one of Central Pennsylvania&apos;s most
-                trusted home builders.
-              </p>
-              <p>
-                Over the decades, the team helped shape dozens of
-                neighborhoods and welcomed thousands of families into homes
-                they&apos;re still proud of today.
-              </p>
-            </div>
-            <Link
-              href="/story"
-              className="mt-7 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+      {/* Heart of a Family — an original Classic Communities flyer.
+          Sits between the featured communities and the "About this
+          project" section, where it reads as a quiet keepsake closing
+          out the public-facing tour of the company before the personal
+          dedication that follows. */}
+      <section className="border-t border-border bg-background px-6 py-16 sm:py-24">
+        <div className="mx-auto w-full max-w-lg">
+          <figure className="space-y-3">
+            <a
+              href="/story/heart-of-a-family.png"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group block overflow-hidden rounded-xl border border-border bg-background shadow-[0_20px_60px_-28px_rgba(15,23,42,0.4)] ring-1 ring-black/5"
+              aria-label="Open the Heart of a Family flyer in a new tab"
             >
-              Read the story
-              <span aria-hidden>→</span>
-            </Link>
-          </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/story/heart-of-a-family.png"
+                alt="Classic Communities &ldquo;Heart of a Family&rdquo; flyer telling the story of founder Virginia Halbert and her sons Jim and Doug, with a framed photo of the Halbert family at the bottom"
+                className="h-full w-full object-contain transition duration-500 group-hover:scale-[1.02]"
+              />
+            </a>
+            <figcaption className="text-center text-sm italic text-muted">
+              A keepsake flyer from the Classic Communities family.
+            </figcaption>
+          </figure>
         </div>
       </section>
 
