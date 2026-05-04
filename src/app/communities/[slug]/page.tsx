@@ -284,21 +284,6 @@ export default async function CommunityDetailPage({ params }: PageProps) {
           </div>
         </section>
 
-        {/* Location */}
-        {mapCommunity && (
-          <section className="mt-16 border-t border-border pt-12">
-            <div className="mb-6">
-              <p className="text-xs uppercase tracking-[4px] text-muted">
-                Location
-              </p>
-              <h2 className="mt-2 font-serif text-3xl font-semibold">
-                {locationLine ?? "On the map"}
-              </h2>
-            </div>
-            <CommunityMapPanel community={mapCommunity} />
-          </section>
-        )}
-
         {sitePlanUrl && (
           <section className="mt-16 border-t border-border pt-12">
             <div className="mb-6 flex items-end justify-between gap-3">
@@ -354,6 +339,21 @@ export default async function CommunityDetailPage({ params }: PageProps) {
                 />
               </a>
             )}
+          </section>
+        )}
+
+        {/* Location */}
+        {mapCommunity && (
+          <section className="mt-16 border-t border-border pt-12">
+            <div className="mb-6">
+              <p className="text-xs uppercase tracking-[4px] text-muted">
+                Location
+              </p>
+              <h2 className="mt-2 font-serif text-3xl font-semibold">
+                {locationLine ?? "On the map"}
+              </h2>
+            </div>
+            <CommunityMapPanel community={mapCommunity} />
           </section>
         )}
 
