@@ -41,6 +41,45 @@ const TYPE_LABEL: Record<CommunityType, string> = {
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
+/**
+ * Rewrite a Supabase Storage public URL to go through the
+ * `render/image/public/...` transformation endpoint, returning a
+ * server-cropped, recompressed WebP at the popup's exact display
+ * dimensions. The popup cover is 280×160 CSS px, so the un-transformed
+ * full-res photo (often 2 MB+) is wildly oversized — the resized
+ * variant is typically 10–35 KB.
+ *
+ * We pass *both* `width` and `height` plus `resize=cover` so the
+ * server does a center-crop to the box's aspect ratio. Passing only a
+ * width makes Supabase scale by width and keep the full source
+ * height, which means a portrait photo comes back as e.g. 280×1000 —
+ * after the popup's `object-fit: cover` reframes that on the client
+ * the result looks heavily zoomed in. Matching the aspect ratio at
+ * the server avoids the double-crop and matches the pre-transform
+ * framing exactly.
+ *
+ * Falls back to the original URL when `src` isn't a Supabase Storage
+ * object URL or is already a transform URL (avoid double-wrapping).
+ *
+ * Quality 70 is the visually-lossless default for WebP per Supabase
+ * docs; WebP is supported in every browser we care about (Safari 14+,
+ * all evergreen).
+ */
+function thumbUrl(src: string, width: number, height: number): string {
+  if (
+    !src.includes("/storage/v1/object/public/") ||
+    src.includes("/storage/v1/render/image/public/")
+  ) {
+    return src;
+  }
+  const rendered = src.replace(
+    "/storage/v1/object/public/",
+    "/storage/v1/render/image/public/",
+  );
+  const sep = rendered.includes("?") ? "&" : "?";
+  return `${rendered}${sep}width=${width}&height=${height}&resize=cover&quality=70&format=webp`;
+}
+
 type BaseStyle = "satellite" | "streets";
 
 const TILE_CONFIGS: Record<
@@ -338,20 +377,53 @@ function PopupGallery({ photos, name }: { photos: string[]; name: string }) {
       role={total > 1 ? "group" : undefined}
       aria-label={total > 1 ? `${name} photos` : undefined}
     >
-      {/* Plain <img> (not next/image) — Leaflet renders the popup into a
-          portal outside React's tree, and next/image's layout
-          requirements don't play nicely inside the absolutely-positioned
-          popup wrapper. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        key={clamped}
-        src={photos[clamped]}
-        alt={
-          total > 1 ? `${name} — photo ${clamped + 1} of ${total}` : name
-        }
-        className="cc-popup__cover"
-        loading="lazy"
-      />
+      {/* Horizontal track of every photo, shifted by translateX so
+          paging slides the next/previous frame into view instead of
+          hard-cutting. Each slide is exactly the viewport width
+          (`flex-basis: 100%` via the CSS class) and the wrapper above
+          clips overflow. Plain <img> (not next/image) — Leaflet renders
+          the popup into a portal outside React's tree, and next/image's
+          layout requirements don't play nicely inside the
+          absolutely-positioned popup wrapper. */}
+      <div
+        className="cc-popup__cover-track"
+        style={{ transform: `translate3d(-${clamped * 100}%, 0, 0)` }}
+      >
+        {photos.map((src, i) => {
+          // The popup cover is 280×160 CSS px. Request a 1x and a 2x
+          // variant at that exact aspect ratio so retina displays get
+          // a crisp frame and 1x displays don't pay for retina pixels,
+          // and so portrait source photos are center-cropped at the
+          // server (matching the popup's `object-fit: cover` framing)
+          // instead of being scaled to a tall sliver and then cropped
+          // again on the client.
+          const src1x = thumbUrl(src, 280, 160);
+          const src2x = thumbUrl(src, 560, 320);
+          return (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={src}
+              src={src1x}
+              srcSet={`${src1x} 1x, ${src2x} 2x`}
+              sizes="280px"
+              alt={
+                total > 1
+                  ? `${name} — photo ${i + 1} of ${total}`
+                  : name
+              }
+              className="cc-popup__cover"
+              // Eager-load the current frame; neighbours can lazy in.
+              // (At ~60 KB each we used to need to preload them for
+              // the slide animation; now they're small enough that
+              // the lazy fetch completes before the user can swipe.)
+              loading={i === clamped ? "eager" : "lazy"}
+              decoding="async"
+              fetchPriority={i === clamped ? "high" : "low"}
+              draggable={false}
+            />
+          );
+        })}
+      </div>
 
       {total > 1 && (
         <>
