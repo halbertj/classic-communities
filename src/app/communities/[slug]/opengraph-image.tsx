@@ -62,11 +62,16 @@ export default async function CommunityOpenGraphImage({ params }: Props) {
         name,
         archived,
         cover_photo_path,
+        address:addresses ( city, state ),
         photos:community_photos ( storage_path, display_order, created_at )
       `,
     )
     .eq("slug", slug)
     .maybeSingle();
+
+  const locationLine = [community?.address?.city, community?.address?.state]
+    .filter(Boolean)
+    .join(", ");
 
   const orderedPhotos = [...(community?.photos ?? [])].sort((a, b) => {
     if (a.display_order !== b.display_order) {
@@ -84,18 +89,37 @@ export default async function CommunityOpenGraphImage({ params }: Props) {
     : null;
 
   // Fetch the cover bytes server-side and inline them as a data URL.
-  // Satori can resolve absolute URLs directly, but doing it ourselves
-  // means we can (a) cleanly fall back to the bundled hero image if
-  // the network fetch fails and (b) avoid a second egress hop from
-  // the OG renderer to Supabase storage at request time.
+  // Satori / @vercel/og can only decode PNG and JPEG inline — anything
+  // else (WebP, AVIF, HEIC, etc.) crashes Satori with an obscure
+  // "is not iterable" error. We use Sharp to transcode non-PNG/JPEG
+  // sources to JPEG before inlining, and fall back to the bundled
+  // hero image if anything else goes wrong.
   let bgDataUrl: string;
   try {
     if (!coverUrl) throw new Error("no cover");
     const res = await fetch(coverUrl, { cache: "no-store" });
     if (!res.ok) throw new Error(`cover fetch ${res.status}`);
-    const buf = Buffer.from(await res.arrayBuffer());
-    const mime = res.headers.get("content-type") ?? "image/jpeg";
-    bgDataUrl = `data:${mime};base64,${buf.toString("base64")}`;
+    const mime = (
+      res.headers.get("content-type") ?? "image/jpeg"
+    ).toLowerCase();
+    const raw = Buffer.from(await res.arrayBuffer());
+
+    let buf: Buffer;
+    let outMime: string;
+    if (mime.startsWith("image/png") || mime.startsWith("image/jpeg")) {
+      buf = raw;
+      outMime = mime.startsWith("image/png") ? "image/png" : "image/jpeg";
+    } else {
+      // Dynamic import so the cost is only paid for non-native formats.
+      const sharp = (await import("sharp")).default;
+      buf = await sharp(raw)
+        // Match the OG canvas so we never re-encode more pixels than we need.
+        .resize({ width: 1200, height: 630, fit: "cover" })
+        .jpeg({ quality: 86 })
+        .toBuffer();
+      outMime = "image/jpeg";
+    }
+    bgDataUrl = `data:${outMime};base64,${buf.toString("base64")}`;
   } catch {
     const bgPng = await readFile(FALLBACK_BG_PATH);
     bgDataUrl = `data:image/png;base64,${bgPng.toString("base64")}`;
@@ -139,7 +163,7 @@ export default async function CommunityOpenGraphImage({ params }: Props) {
           }}
         />
 
-        {/* Vignette to keep edges from washing out the title. */}
+        {/* Soft vignette so edges don't wash out the title. */}
         <div
           style={{
             display: "flex",
@@ -149,11 +173,11 @@ export default async function CommunityOpenGraphImage({ params }: Props) {
             width,
             height,
             backgroundImage:
-              "radial-gradient(ellipse at center, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0.50) 100%)",
+              "radial-gradient(ellipse at center, rgba(0,0,0,0.00) 0%, rgba(0,0,0,0.20) 70%, rgba(0,0,0,0.45) 100%)",
           }}
         />
 
-        {/* Flat wash for consistent contrast across any cover photo. */}
+        {/* Light flat wash for consistent contrast across any cover. */}
         <div
           style={{
             display: "flex",
@@ -162,7 +186,23 @@ export default async function CommunityOpenGraphImage({ params }: Props) {
             left: 0,
             width,
             height,
-            backgroundColor: "rgba(0, 0, 0, 0.40)",
+            backgroundColor: "rgba(0, 0, 0, 0.22)",
+          }}
+        />
+
+        {/* Strong bottom gradient that anchors the title — keeps the
+            community name legible over any cover photo without
+            darkening the whole image. */}
+        <div
+          style={{
+            display: "flex",
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width,
+            height,
+            backgroundImage:
+              "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 30%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0.00) 100%)",
           }}
         />
 
@@ -175,21 +215,20 @@ export default async function CommunityOpenGraphImage({ params }: Props) {
             width,
             height,
             flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "0 80px",
-            textAlign: "center",
+            alignItems: "flex-start",
+            justifyContent: "flex-end",
+            padding: "0 80px 72px 80px",
           }}
         >
           <div
             style={{
               display: "flex",
-              fontSize: 26,
+              fontSize: 24,
               fontWeight: 600,
               letterSpacing: 8,
               textTransform: "uppercase",
-              color: "rgba(255,255,255,0.85)",
-              marginBottom: 28,
+              color: "rgba(255,255,255,0.92)",
+              marginBottom: 22,
             }}
           >
             Classic Communities
@@ -199,14 +238,28 @@ export default async function CommunityOpenGraphImage({ params }: Props) {
               display: "flex",
               fontSize: titleFontSize,
               fontWeight: 600,
-              lineHeight: 1.05,
+              lineHeight: 1.02,
               color: "white",
-              textAlign: "center",
-              maxWidth: width - 200,
+              maxWidth: width - 160,
             }}
           >
             {displayName}
           </div>
+          {locationLine ? (
+            <div
+              style={{
+                display: "flex",
+                marginTop: 20,
+                fontSize: 30,
+                fontWeight: 600,
+                letterSpacing: 4,
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.85)",
+              }}
+            >
+              {locationLine}
+            </div>
+          ) : null}
         </div>
       </div>
     ),
