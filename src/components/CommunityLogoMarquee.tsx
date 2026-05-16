@@ -26,7 +26,11 @@ export function CommunityLogoMarquee({
   return (
     <section
       aria-label="Classic Communities neighborhoods"
-      className="border-b border-border bg-background py-10"
+      // Asymmetric padding: tighter on top so the marquee reads as a
+      // continuation of the map section above it, and roomier on the
+      // bottom to give the next section (story / featured) a clean
+      // visual break from the moving logos.
+      className="border-b border-border bg-background pb-16 pt-6 sm:pb-20 sm:pt-8"
     >
       <div
         className="cc-marquee group relative overflow-hidden"

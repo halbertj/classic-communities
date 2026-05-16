@@ -44,6 +44,38 @@ type FeaturedCommunity = {
   cover_photo_url: string | null;
 };
 
+/**
+ * Public URL of the first video uploaded to the Silver Creek community,
+ * used as the looping background for the landing hero. We look it up
+ * dynamically (rather than hard-coding a storage key) so swapping the
+ * drone footage from the admin gallery is a one-click change — no
+ * redeploy required. Returns null if Silver Creek has no videos, in
+ * which case the hero falls back to the bundled aerial still.
+ */
+async function loadHeroVideoUrl(): Promise<string | null> {
+  const supabase = await createClient();
+  const { data: community } = await supabase
+    .from("communities")
+    .select("id")
+    .eq("slug", "silver-creek")
+    .maybeSingle();
+  if (!community) return null;
+
+  const { data: video } = await supabase
+    .from("community_videos")
+    .select("storage_path")
+    .eq("community_id", community.id)
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!video?.storage_path) return null;
+
+  return supabase.storage
+    .from("community-videos")
+    .getPublicUrl(video.storage_path).data.publicUrl;
+}
+
 async function loadCommunities(): Promise<{
   mapped: MapCommunity[];
   featured: FeaturedCommunity[];
@@ -155,12 +187,22 @@ async function loadCommunities(): Promise<{
 }
 
 export default async function HomePage() {
-  const { mapped, featured, logos, total } = await loadCommunities();
+  const [{ mapped, featured, logos, total }, heroVideoUrl] = await Promise.all([
+    loadCommunities(),
+    loadHeroVideoUrl(),
+  ]);
 
   return (
     <>
       <section className="relative flex min-h-[70dvh] w-full items-center justify-center overflow-hidden">
-        {/* Background photograph */}
+        {/* Background plate.
+            The silver-creek.png aerial is rendered first as a poster /
+            fallback — it's what shows up before the video buffers and
+            on browsers that refuse autoplay (Low Power Mode iOS, Data
+            Saver, etc.). The looping drone video then layers on top
+            when present and gracefully reveals the same scene in
+            motion. Both are pinned full-bleed with object-cover so the
+            framing matches whichever ends up visible. */}
         <Image
           src="/silver-creek.png"
           alt="Aerial view of a Classic Communities neighborhood"
@@ -169,6 +211,28 @@ export default async function HomePage() {
           sizes="100vw"
           className="object-cover"
         />
+
+        {heroVideoUrl && (
+          // Muted + playsInline + autoPlay is the standard recipe that
+          // browsers accept without a user gesture. `preload="auto"`
+          // (rather than "metadata") asks the browser to start
+          // buffering immediately so the transition from poster to
+          // video happens quickly on a warm connection. We point
+          // `poster` at the same still so any flash between Image
+          // load and video decode is invisible.
+          <video
+            src={heroVideoUrl}
+            poster="/silver-creek.png"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            disablePictureInPicture
+            aria-hidden
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          />
+        )}
 
         {/* Minimal top-right nav, sits above the overlays. Kept inline
             (rather than reusing <SiteHeader />) so the hero can stay
@@ -233,8 +297,6 @@ export default async function HomePage() {
           </a>
         </div>
       </section>
-
-      <CommunityLogoMarquee communities={logos} />
 
       <section
         id="story"
@@ -301,6 +363,13 @@ export default async function HomePage() {
         totalCount={total}
         showCta={featured.length === 0}
       />
+
+      {/* Logo marquee sits below the map (rather than under the hero)
+          so the looping drone video isn't competing with a second
+          motion element above the fold. By the time visitors reach it,
+          the hero has settled and the map gives a static beat between
+          the two animated bands. */}
+      <CommunityLogoMarquee communities={logos} />
 
       {featured.length > 0 && (
         <section className="border-t border-border bg-background px-6 py-16 sm:py-24">
