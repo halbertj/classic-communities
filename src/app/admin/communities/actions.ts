@@ -564,3 +564,258 @@ export async function removeCommunityPhoto(
 
   return { ok: true };
 }
+
+// =============================================================================
+// Community videos
+//
+// These mirror the photo actions above (`addCommunityPhotos`,
+// `reorderCommunityPhotos`, `removeCommunityPhoto`) but target the
+// `community_videos` table and the `community-videos` storage bucket.
+//
+// Pattern recap: the browser uploads the binary directly to Supabase
+// Storage, then calls these server actions with the resulting storage
+// keys (plus optional metadata). On row deletion we also drop the
+// backing object through the Storage API — DB triggers can't touch
+// `storage.objects` directly.
+// =============================================================================
+
+export type CommunityVideoRow = {
+  id: string;
+  storage_path: string;
+  poster_path: string | null;
+  mime_type: string | null;
+  duration_seconds: number | null;
+  caption: string | null;
+  display_order: number;
+};
+
+export type CommunityVideoInput = {
+  storage_path: string;
+  poster_path?: string | null;
+  mime_type?: string | null;
+  duration_seconds?: number | null;
+  caption?: string | null;
+};
+
+export type AddCommunityVideosResult =
+  | { ok: true; rows: CommunityVideoRow[] }
+  | { ok: false; message: string };
+
+/**
+ * Append one or more already-uploaded videos to a community. The files
+ * are expected to live in the `community-videos` bucket (and the
+ * optional posters in `community-photos`) — the browser uploads them
+ * directly and then hands us the storage keys plus any metadata it was
+ * able to read off the file (mime type, duration).
+ *
+ * Display order picks up from the community's current max so new
+ * uploads land at the end, matching the photo gallery's behaviour.
+ */
+export async function addCommunityVideos(
+  communityId: string,
+  videos: CommunityVideoInput[],
+): Promise<AddCommunityVideosResult> {
+  await requireAdmin();
+
+  if (!communityId) {
+    return { ok: false, message: "Missing community id." };
+  }
+
+  const clean = (Array.isArray(videos) ? videos : [])
+    .map((v) => {
+      const path = typeof v?.storage_path === "string" ? v.storage_path.trim() : "";
+      if (!path) return null;
+      const poster =
+        typeof v.poster_path === "string" && v.poster_path.trim().length
+          ? v.poster_path.trim()
+          : null;
+      const mime =
+        typeof v.mime_type === "string" && v.mime_type.trim().length
+          ? v.mime_type.trim()
+          : null;
+      const duration =
+        typeof v.duration_seconds === "number" &&
+        Number.isFinite(v.duration_seconds) &&
+        v.duration_seconds >= 0
+          ? v.duration_seconds
+          : null;
+      const caption =
+        typeof v.caption === "string" && v.caption.trim().length
+          ? v.caption.trim()
+          : null;
+      return {
+        storage_path: path,
+        poster_path: poster,
+        mime_type: mime,
+        duration_seconds: duration,
+        caption,
+      };
+    })
+    .filter((v): v is NonNullable<typeof v> => v !== null);
+
+  if (clean.length === 0) {
+    return { ok: false, message: "No videos to add." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: community, error: fetchErr } = await supabase
+    .from("communities")
+    .select("id, slug")
+    .eq("id", communityId)
+    .maybeSingle();
+  if (fetchErr || !community) {
+    return { ok: false, message: fetchErr?.message ?? "Community not found." };
+  }
+
+  const { data: last, error: orderErr } = await supabase
+    .from("community_videos")
+    .select("display_order")
+    .eq("community_id", communityId)
+    .order("display_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (orderErr) return { ok: false, message: orderErr.message };
+
+  const base = last?.display_order ?? -1;
+  const rowsToInsert = clean.map((v, i) => ({
+    community_id: communityId,
+    storage_path: v.storage_path,
+    poster_path: v.poster_path,
+    mime_type: v.mime_type,
+    duration_seconds: v.duration_seconds,
+    caption: v.caption,
+    display_order: base + 1 + i,
+  }));
+
+  const { data, error } = await supabase
+    .from("community_videos")
+    .insert(rowsToInsert)
+    .select(
+      "id, storage_path, poster_path, mime_type, duration_seconds, caption, display_order",
+    )
+    .order("display_order");
+  if (error || !data) {
+    return { ok: false, message: error?.message ?? "Insert failed." };
+  }
+
+  revalidatePath("/admin/communities");
+  revalidatePath("/communities");
+  revalidatePath(`/communities/${community.slug}`);
+
+  return { ok: true, rows: data };
+}
+
+export type ReorderCommunityVideosResult =
+  | { ok: true }
+  | { ok: false; message: string };
+
+/**
+ * Persist a new display order for a community's videos. Same shape as
+ * `reorderCommunityPhotos`: we rewrite every row's `display_order` to
+ * its index in `orderedIds`, restricted to rows that actually belong to
+ * the community.
+ */
+export async function reorderCommunityVideos(
+  communityId: string,
+  orderedIds: string[],
+): Promise<ReorderCommunityVideosResult> {
+  await requireAdmin();
+
+  if (!communityId) return { ok: false, message: "Missing community id." };
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+    return { ok: false, message: "Nothing to reorder." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: existing, error: fetchErr } = await supabase
+    .from("community_videos")
+    .select("id, community:community_id ( slug )")
+    .eq("community_id", communityId);
+  if (fetchErr) return { ok: false, message: fetchErr.message };
+
+  const validIds = new Set((existing ?? []).map((r) => r.id));
+  const seen = new Set<string>();
+  const clean = orderedIds.filter((id) => {
+    if (typeof id !== "string" || !validIds.has(id) || seen.has(id)) {
+      return false;
+    }
+    seen.add(id);
+    return true;
+  });
+
+  if (clean.length === 0) {
+    return { ok: false, message: "No matching videos to reorder." };
+  }
+
+  const results = await Promise.all(
+    clean.map((id, i) =>
+      supabase
+        .from("community_videos")
+        .update({ display_order: i })
+        .eq("id", id)
+        .eq("community_id", communityId),
+    ),
+  );
+  const firstErr = results.find((r) => r.error)?.error;
+  if (firstErr) return { ok: false, message: firstErr.message };
+
+  const slug = existing?.[0]?.community?.slug;
+  revalidatePath("/admin/communities");
+  revalidatePath("/communities");
+  if (slug) revalidatePath(`/communities/${slug}`);
+
+  return { ok: true };
+}
+
+export type RemoveCommunityVideoResult =
+  | { ok: true }
+  | { ok: false; message: string };
+
+/**
+ * Delete a video. Same order-of-operations as `removeCommunityPhoto`:
+ * fetch the storage paths + community slug, delete the row, then clean
+ * up the backing objects (video + optional poster) through the Storage
+ * API. If storage cleanup fails after the row is gone we swallow the
+ * error — an orphaned object is harmless and easier to garbage-collect
+ * than a "row deleted but storage kept" inconsistency.
+ */
+export async function removeCommunityVideo(
+  videoId: string,
+): Promise<RemoveCommunityVideoResult> {
+  await requireAdmin();
+
+  if (!videoId) return { ok: false, message: "Missing video id." };
+
+  const supabase = await createClient();
+
+  const { data: row, error: fetchErr } = await supabase
+    .from("community_videos")
+    .select("storage_path, poster_path, community:community_id ( slug )")
+    .eq("id", videoId)
+    .maybeSingle();
+  if (fetchErr) return { ok: false, message: fetchErr.message };
+  if (!row) return { ok: false, message: "Video not found." };
+
+  const { error } = await supabase
+    .from("community_videos")
+    .delete()
+    .eq("id", videoId);
+  if (error) return { ok: false, message: error.message };
+
+  if (row.storage_path) {
+    await supabase.storage.from("community-videos").remove([row.storage_path]);
+  }
+  if (row.poster_path) {
+    // Posters live in the photos bucket — see migration notes.
+    await supabase.storage.from("community-photos").remove([row.poster_path]);
+  }
+
+  const slug = row.community?.slug;
+  revalidatePath("/admin/communities");
+  revalidatePath("/communities");
+  if (slug) revalidatePath(`/communities/${slug}`);
+
+  return { ok: true };
+}

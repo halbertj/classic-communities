@@ -8,10 +8,15 @@ import { slugify } from "@/lib/slugify";
 
 import {
   addCommunityPhotos,
+  addCommunityVideos,
   removeCommunityPhoto,
+  removeCommunityVideo,
   reorderCommunityPhotos,
+  reorderCommunityVideos,
   updateCommunity,
   type CommunityPhotoRow,
+  type CommunityVideoInput,
+  type CommunityVideoRow,
   type UpdateCommunityState,
 } from "./actions";
 import { AddressAutocomplete } from "./AddressAutocomplete";
@@ -23,6 +28,11 @@ const INITIAL: UpdateCommunityState = { status: "idle" };
 // drop zone (which checks `dataTransfer.types.includes("Files")`) ignores
 // reorder drags, and our handlers ignore stray OS-file drags.
 const REORDER_MIME = "application/x-cc-photo-id";
+
+// Separate reorder mime for the video grid so a video drag never accidentally
+// triggers the photo grid's drop logic (or vice versa) when the two sections
+// are visible on screen at the same time.
+const VIDEO_REORDER_MIME = "application/x-cc-video-id";
 
 const COMMUNITY_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "", label: "— Select type —" },
@@ -108,6 +118,22 @@ export function EditCommunityDrawer({
     null,
   );
   const reorderSnapshotRef = useRef<CommunityPhotoRow[] | null>(null);
+
+  // Gallery videos (the `community_videos` table). Same shape and lifecycle
+  // as photos: lazy-loaded on mount, optimistic mutations, drag-to-reorder,
+  // direct-to-Storage uploads against the `community-videos` bucket.
+  type VideoQueueItem = { id: string; name: string };
+  const [videos, setVideos] = useState<CommunityVideoRow[]>([]);
+  const [videosLoading, setVideosLoading] = useState(true);
+  const [videoQueue, setVideoQueue] = useState<VideoQueueItem[]>([]);
+  const [videosDragging, setVideosDragging] = useState(false);
+  const [videosError, setVideosError] = useState<string | null>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+
+  const [videoReorderDraggingId, setVideoReorderDraggingId] = useState<
+    string | null
+  >(null);
+  const videoReorderSnapshotRef = useRef<CommunityVideoRow[] | null>(null);
 
   // "Featured on the home page" flag. Mirrors the inline star toggle on
   // the table; here we just persist along with the rest of the form.
@@ -589,6 +615,310 @@ export function EditCommunityDrawer({
     setReorderDraggingId(null);
   }
 
+  // --- Gallery videos -------------------------------------------------
+  //
+  // Mirrors the photo gallery block above: lazy-load on mount, upload
+  // direct to Storage, persist rows via the server action, optimistic
+  // reorder / remove, and a custom mime type so reorder drags don't
+  // collide with file drags or the photo grid's reorder drags.
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("community_videos")
+        .select(
+          "id, storage_path, poster_path, mime_type, duration_seconds, caption, display_order, created_at",
+        )
+        .eq("community_id", community.id)
+        .order("display_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (cancelled) return;
+
+      if (error) {
+        setVideosError(error.message);
+        setVideosLoading(false);
+        return;
+      }
+      setVideos(
+        (data ?? []).map((r) => ({
+          id: r.id,
+          storage_path: r.storage_path,
+          poster_path: r.poster_path,
+          mime_type: r.mime_type,
+          duration_seconds: r.duration_seconds,
+          caption: r.caption,
+          display_order: r.display_order,
+        })),
+      );
+      setVideosLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [community.id, supabase]);
+
+  function publicVideoUrl(path: string) {
+    return supabase.storage.from("community-videos").getPublicUrl(path).data
+      .publicUrl;
+  }
+
+  function publicPosterUrl(path: string) {
+    // Posters live in the photos bucket — see the videos migration.
+    return supabase.storage.from("community-photos").getPublicUrl(path).data
+      .publicUrl;
+  }
+
+  /**
+   * Best-effort read of `duration` (seconds) off a local video file. Uses a
+   * detached <video> element loaded from a blob URL; resolves to `null` if
+   * the browser can't decode the file (e.g. an exotic codec). We never block
+   * the upload on this — duration is metadata, not a gate.
+   */
+  function probeVideoDuration(file: File): Promise<number | null> {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const el = document.createElement("video");
+      el.preload = "metadata";
+      let settled = false;
+      const done = (value: number | null) => {
+        if (settled) return;
+        settled = true;
+        URL.revokeObjectURL(url);
+        resolve(value);
+      };
+      el.onloadedmetadata = () => {
+        const d = el.duration;
+        done(Number.isFinite(d) && d >= 0 ? d : null);
+      };
+      el.onerror = () => done(null);
+      // Give the browser a reasonable budget — some containers stall on
+      // metadata. We still upload the file either way.
+      window.setTimeout(() => done(null), 5000);
+      el.src = url;
+    });
+  }
+
+  async function uploadVideoFiles(fileList: FileList | File[]) {
+    const files = Array.from(fileList);
+    if (files.length === 0) return;
+
+    // Per product decision: no client-side size limit. We still gate on
+    // MIME so we don't accidentally accept arbitrary binaries dragged in.
+    const valid: File[] = [];
+    const invalid: string[] = [];
+    for (const f of files) {
+      if (!f.type.startsWith("video/")) {
+        invalid.push(`${f.name}: not a video`);
+        continue;
+      }
+      valid.push(f);
+    }
+
+    if (invalid.length > 0) {
+      setVideosError(invalid.join(" · "));
+    } else {
+      setVideosError(null);
+    }
+    if (valid.length === 0) return;
+
+    const queueItems: VideoQueueItem[] = valid.map((f, i) => ({
+      id: `qv-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}`,
+      name: f.name,
+    }));
+    setVideoQueue((prev) => [...prev, ...queueItems]);
+
+    // Probe duration before upload so we can persist it alongside the row.
+    // Done in parallel with the upload itself to avoid serial latency.
+    const uploads = await Promise.all(
+      valid.map(async (file, i) => {
+        try {
+          const durationPromise = probeVideoDuration(file);
+
+          const extFromName = file.name.split(".").pop()?.toLowerCase();
+          const extFromType = file.type.split("/")[1]?.toLowerCase();
+          const ext = (extFromName || extFromType || "mp4").replace(
+            /[^a-z0-9]/g,
+            "",
+          );
+          const path = `${community.id}/gallery/${Date.now()}-${i}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}.${ext}`;
+
+          const { error } = await supabase.storage
+            .from("community-videos")
+            .upload(path, file, {
+              cacheControl: "31536000",
+              contentType: file.type || undefined,
+              upsert: false,
+            });
+          if (error) throw error;
+
+          const duration = await durationPromise;
+
+          return {
+            ok: true as const,
+            queueId: queueItems[i].id,
+            input: {
+              storage_path: path,
+              mime_type: file.type || null,
+              duration_seconds: duration,
+            } satisfies CommunityVideoInput,
+          };
+        } catch (err) {
+          return {
+            ok: false as const,
+            queueId: queueItems[i].id,
+            name: file.name,
+            message: err instanceof Error ? err.message : "Upload failed",
+          };
+        }
+      }),
+    );
+
+    const uploadedInputs = uploads
+      .filter((u): u is Extract<typeof u, { ok: true }> => u.ok)
+      .map((u) => u.input);
+
+    if (uploadedInputs.length > 0) {
+      const res = await addCommunityVideos(community.id, uploadedInputs);
+      if (res.ok) {
+        setVideos((prev) =>
+          [...prev, ...res.rows].sort(
+            (a, b) => a.display_order - b.display_order,
+          ),
+        );
+      } else {
+        setVideosError(res.message);
+      }
+    }
+
+    const finishedIds = new Set(uploads.map((u) => u.queueId));
+    setVideoQueue((prev) => prev.filter((q) => !finishedIds.has(q.id)));
+
+    const failures = uploads.filter((u) => !u.ok);
+    if (failures.length > 0) {
+      setVideosError(
+        failures
+          .map((f) => (f.ok ? "" : `${f.name}: ${f.message}`))
+          .filter(Boolean)
+          .join(" · "),
+      );
+    }
+  }
+
+  async function handleVideoInputChange(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const files = event.target.files;
+    event.target.value = "";
+    if (!files || files.length === 0) return;
+    await uploadVideoFiles(files);
+  }
+
+  function handleVideosDragOver(event: React.DragEvent<HTMLDivElement>) {
+    if (!event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    if (!videosDragging) setVideosDragging(true);
+  }
+
+  function handleVideosDragLeave(event: React.DragEvent<HTMLDivElement>) {
+    const next = event.relatedTarget as Node | null;
+    if (next && event.currentTarget.contains(next)) return;
+    setVideosDragging(false);
+  }
+
+  async function handleVideosDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setVideosDragging(false);
+    const files = event.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    await uploadVideoFiles(files);
+  }
+
+  async function handleRemoveVideo(id: string) {
+    const snapshot = videos;
+    setVideos((prev) => prev.filter((v) => v.id !== id));
+    const res = await removeCommunityVideo(id);
+    if (!res.ok) {
+      setVideos(snapshot);
+      setVideosError(res.message);
+    }
+  }
+
+  function handleVideoDragStart(
+    event: React.DragEvent<HTMLLIElement>,
+    id: string,
+  ) {
+    videoReorderSnapshotRef.current = videos;
+    setVideoReorderDraggingId(id);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(VIDEO_REORDER_MIME, id);
+  }
+
+  function handleVideoDragOver(event: React.DragEvent<HTMLLIElement>) {
+    if (!event.dataTransfer.types.includes(VIDEO_REORDER_MIME)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "move";
+  }
+
+  function handleVideoDragEnter(
+    event: React.DragEvent<HTMLLIElement>,
+    overId: string,
+  ) {
+    if (!event.dataTransfer.types.includes(VIDEO_REORDER_MIME)) return;
+    if (!videoReorderDraggingId || videoReorderDraggingId === overId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setVideos((prev) => {
+      const fromIdx = prev.findIndex((v) => v.id === videoReorderDraggingId);
+      const toIdx = prev.findIndex((v) => v.id === overId);
+      if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return prev;
+      const next = prev.slice();
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+      return next;
+    });
+  }
+
+  async function handleVideoDrop(event: React.DragEvent<HTMLLIElement>) {
+    if (!event.dataTransfer.types.includes(VIDEO_REORDER_MIME)) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const snapshot = videoReorderSnapshotRef.current;
+    videoReorderSnapshotRef.current = null;
+    setVideoReorderDraggingId(null);
+
+    const orderedIds = videos.map((v) => v.id);
+    if (
+      snapshot &&
+      snapshot.length === orderedIds.length &&
+      snapshot.every((v, i) => v.id === orderedIds[i])
+    ) {
+      return;
+    }
+
+    const res = await reorderCommunityVideos(community.id, orderedIds);
+    if (!res.ok) {
+      if (snapshot) setVideos(snapshot);
+      setVideosError(res.message);
+    } else {
+      setVideosError(null);
+    }
+  }
+
+  function handleVideoDragEnd() {
+    if (videoReorderSnapshotRef.current) {
+      setVideos(videoReorderSnapshotRef.current);
+      videoReorderSnapshotRef.current = null;
+    }
+    setVideoReorderDraggingId(null);
+  }
+
   const addr = community.address;
 
   // Address fields are controlled so the autocomplete on the street line can
@@ -626,11 +956,36 @@ export function EditCommunityDrawer({
         }`}
       >
         <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-border bg-background/95 px-6 py-4 backdrop-blur">
-          <div className="min-w-0">
-            <p className="text-xs uppercase tracking-[3px] text-muted">
-              Edit community
-            </p>
-            <h2 className="truncate text-lg font-semibold">{community.name}</h2>
+          <div className="flex min-w-0 items-center gap-3">
+            {/* Live preview of the per-community Open Graph image (the
+                same one used for link unfurls). Renders the cover photo
+                with the dark wash + community name overlay so admins can
+                see exactly what social previews will look like without
+                leaving the drawer. The `?t=…` cache-buster nudges the
+                browser to refetch after any save in this session. */}
+            <a
+              href={`/communities/${community.slug}/opengraph-image`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open social preview image"
+              title="Social preview"
+              className="relative block aspect-[1200/630] w-24 shrink-0 overflow-hidden rounded-md border border-border bg-surface"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/communities/${community.slug}/opengraph-image`}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            </a>
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-[3px] text-muted">
+                Edit community
+              </p>
+              <h2 className="truncate text-lg font-semibold">
+                {community.name}
+              </h2>
+            </div>
           </div>
           <div className="flex items-center gap-1">
             <a
@@ -902,6 +1257,194 @@ export function EditCommunityDrawer({
               {photosError && (
                 <span className="text-red-600" role="alert">
                   {photosError}
+                </span>
+              )}
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <div className="flex items-end justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+                Videos
+              </h3>
+              <span className="text-xs text-muted">
+                {videos.length + videoQueue.length}{" "}
+                {videos.length + videoQueue.length === 1 ? "video" : "videos"}
+              </span>
+            </div>
+
+            <div
+              onDragEnter={handleVideosDragOver}
+              onDragOver={handleVideosDragOver}
+              onDragLeave={handleVideosDragLeave}
+              onDrop={handleVideosDrop}
+              onClick={() => videoInputRef.current?.click()}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  videoInputRef.current?.click();
+                }
+              }}
+              aria-label="Add videos"
+              className={`relative cursor-pointer rounded-lg border-2 border-dashed bg-surface p-3 transition-colors ${
+                videosDragging
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-foreground/30"
+              }`}
+            >
+              {videosLoading ? (
+                <div className="flex h-32 items-center justify-center text-sm text-muted">
+                  Loading videos…
+                </div>
+              ) : videos.length === 0 && videoQueue.length === 0 ? (
+                <div className="flex h-32 flex-col items-center justify-center gap-1 text-center text-sm text-muted">
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden
+                  >
+                    <rect
+                      x="3"
+                      y="6"
+                      width="14"
+                      height="12"
+                      rx="2"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    />
+                    <path
+                      d="M17 10l4-2v8l-4-2"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span>Drag videos here</span>
+                  <span className="text-xs">
+                    or click to choose — you can select multiple
+                  </span>
+                </div>
+              ) : (
+                <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {videos.map((v) => (
+                    <li
+                      key={v.id}
+                      draggable
+                      onDragStart={(e) => handleVideoDragStart(e, v.id)}
+                      onDragOver={handleVideoDragOver}
+                      onDragEnter={(e) => handleVideoDragEnter(e, v.id)}
+                      onDrop={handleVideoDrop}
+                      onDragEnd={handleVideoDragEnd}
+                      className={`group relative aspect-video cursor-grab overflow-hidden rounded-md border border-border bg-background transition-opacity active:cursor-grabbing ${
+                        videoReorderDraggingId === v.id ? "opacity-40" : ""
+                      }`}
+                    >
+                      {/* `preload="metadata"` keeps initial bytes light; the
+                          poster (if set) carries the first impression so we
+                          don't need to actually start playback to show
+                          something. `draggable={false}` so the native video
+                          drag doesn't preempt the <li>'s reorder drag. */}
+                      <video
+                        src={publicVideoUrl(v.storage_path)}
+                        poster={
+                          v.poster_path ? publicPosterUrl(v.poster_path) : undefined
+                        }
+                        controls
+                        preload="metadata"
+                        playsInline
+                        draggable={false}
+                        className="h-full w-full select-none object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleRemoveVideo(v.id);
+                        }}
+                        aria-label="Remove video"
+                        className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity hover:bg-black/80 focus:opacity-100 group-hover:opacity-100"
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          aria-hidden
+                        >
+                          <path
+                            d="M3 3l6 6M9 3L3 9"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </button>
+                    </li>
+                  ))}
+                  {videoQueue.map((q) => (
+                    <li
+                      key={q.id}
+                      className="relative flex aspect-video items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-background"
+                      title={q.name}
+                    >
+                      <svg
+                        className="h-5 w-5 animate-spin text-muted"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        aria-hidden
+                      >
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="9"
+                          stroke="currentColor"
+                          strokeOpacity="0.25"
+                          strokeWidth="3"
+                        />
+                        <path
+                          d="M21 12a9 9 0 0 0-9-9"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {videosDragging && (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-primary/10 text-sm font-medium text-primary"
+                >
+                  Drop to upload
+                </div>
+              )}
+            </div>
+
+            <input
+              ref={videoInputRef}
+              type="file"
+              accept="video/*"
+              multiple
+              className="hidden"
+              onChange={handleVideoInputChange}
+            />
+
+            <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
+              <span>
+                Drop multiple at once, drag tiles to reorder. Large files are
+                allowed — uploads go directly to storage.
+              </span>
+              {videosError && (
+                <span className="text-red-600" role="alert">
+                  {videosError}
                 </span>
               )}
             </div>

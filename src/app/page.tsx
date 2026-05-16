@@ -4,6 +4,10 @@ import Link from "next/link";
 import { AboutGallery } from "@/components/AboutGallery";
 import { HomeMapSection } from "@/components/HomeMapSection";
 import type { MapCommunity } from "@/components/CommunitiesMap";
+import {
+  CommunityLogoMarquee,
+  type LogoCommunity,
+} from "@/components/CommunityLogoMarquee";
 import { SiteFooter } from "@/components/SiteFooter";
 import { createClient } from "@/lib/supabase/server";
 
@@ -43,6 +47,7 @@ type FeaturedCommunity = {
 async function loadCommunities(): Promise<{
   mapped: MapCommunity[];
   featured: FeaturedCommunity[];
+  logos: LogoCommunity[];
   total: number;
 }> {
   const supabase = await createClient();
@@ -55,6 +60,7 @@ async function loadCommunities(): Promise<{
         slug,
         community_type,
         cover_photo_path,
+        logo_path,
         starred,
         address:addresses ( city, state, latitude, longitude ),
         photos:community_photos ( storage_path, display_order, created_at )
@@ -65,14 +71,17 @@ async function loadCommunities(): Promise<{
     .order("name");
 
   if (error || !data) {
-    return { mapped: [], featured: [], total: 0 };
+    return { mapped: [], featured: [], logos: [], total: 0 };
   }
 
   const publicUrl = (path: string) =>
     supabase.storage.from("community-photos").getPublicUrl(path).data.publicUrl;
+  const logoUrl = (path: string) =>
+    supabase.storage.from("community-logos").getPublicUrl(path).data.publicUrl;
 
   const mapped: MapCommunity[] = [];
   const featured: FeaturedCommunity[] = [];
+  const logos: LogoCommunity[] = [];
   for (const c of data) {
     const addr = c.address;
     // Bucket is public, so `getPublicUrl` is a pure string builder — no
@@ -127,17 +136,30 @@ async function loadCommunities(): Promise<{
         cover_photo_url: coverUrl,
       });
     }
+
+    if (c.logo_path) {
+      logos.push({
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        logo_url: logoUrl(c.logo_path),
+      });
+    }
   }
 
-  return { mapped, featured, total: data.length };
+  // The query already orders by name, but sort defensively so the
+  // marquee is always alphabetical regardless of upstream changes.
+  logos.sort((a, b) => a.name.localeCompare(b.name));
+
+  return { mapped, featured, logos, total: data.length };
 }
 
 export default async function HomePage() {
-  const { mapped, featured, total } = await loadCommunities();
+  const { mapped, featured, logos, total } = await loadCommunities();
 
   return (
     <>
-      <section className="relative flex min-h-[100dvh] w-full items-center justify-center overflow-hidden">
+      <section className="relative flex min-h-[70dvh] w-full items-center justify-center overflow-hidden">
         {/* Background photograph */}
         <Image
           src="/silver-creek.png"
@@ -211,6 +233,8 @@ export default async function HomePage() {
           </a>
         </div>
       </section>
+
+      <CommunityLogoMarquee communities={logos} />
 
       <section
         id="story"

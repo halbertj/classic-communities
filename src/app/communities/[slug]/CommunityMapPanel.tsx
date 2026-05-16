@@ -20,7 +20,7 @@ const CommunitiesMap = dynamic(
 
 export function CommunityMapPanel({ community }: { community: MapCommunity }) {
   return (
-    <div className="relative h-[420px] overflow-hidden rounded-xl bg-surface ring-1 ring-black/5 sm:h-[480px]">
+    <div className="relative isolate z-0 h-[420px] overflow-hidden rounded-xl bg-surface ring-1 ring-black/5 sm:h-[480px]">
       <CommunitiesMap
         communities={[community]}
         popupVariant="city"

@@ -342,12 +342,40 @@ button:disabled,
 
 /* Hide the native horizontal scrollbar on the About gallery — swiping,
    trackpads, and the arrow buttons are the intended interactions. */
-.cc-about-scroller {
+.cc-about-scroller,
+.cc-no-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-.cc-about-scroller::-webkit-scrollbar {
+.cc-about-scroller::-webkit-scrollbar,
+.cc-no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* ---------- Community logo marquee ---------- */
+/* The track is rendered with two copies of the list back-to-back, so a
+   -50% translation lands exactly where the first copy began, producing
+   a seamless loop. Hovering pauses the animation so visitors can read
+   a logo or click through. */
+@keyframes cc-marquee-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+.cc-marquee__track {
+  animation: cc-marquee-scroll var(--marquee-duration, 60s) linear infinite;
+  will-change: transform;
+}
+.cc-marquee:hover .cc-marquee__track {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cc-marquee__track {
+    animation: none;
+  }
 }
 
 /* ---------- Leaflet: attribution bar ---------- */

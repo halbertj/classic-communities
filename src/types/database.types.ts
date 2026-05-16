@@ -181,6 +181,63 @@ export type Database = {
           },
         ]
       }
+      community_videos: {
+        Row: {
+          caption: string | null
+          community_id: string
+          created_at: string
+          display_order: number
+          duration_seconds: number | null
+          id: string
+          mime_type: string | null
+          poster_path: string | null
+          storage_path: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          caption?: string | null
+          community_id: string
+          created_at?: string
+          display_order?: number
+          duration_seconds?: number | null
+          id?: string
+          mime_type?: string | null
+          poster_path?: string | null
+          storage_path: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          caption?: string | null
+          community_id?: string
+          created_at?: string
+          display_order?: number
+          duration_seconds?: number | null
+          id?: string
+          mime_type?: string | null
+          poster_path?: string | null
+          storage_path?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_videos_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_videos_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
