@@ -534,10 +534,14 @@ function Lightbox({
         </button>
       </div>
 
-      <button
-        type="button"
+      {/* Backdrop area: clicking the empty space around the media closes
+          the lightbox. Rendered as a div (with a stopPropagation media
+          child) so the nested prev/next buttons don't trigger React's
+          "button inside button" hydration error. Keyboard users still
+          have Esc + the explicit Close button in the header. */}
+      <div
         onClick={onClose}
-        aria-label="Close"
+        aria-hidden
         className="relative flex flex-1 items-center justify-center overflow-hidden px-4"
       >
         {isVideo ? (
@@ -582,7 +586,7 @@ function Lightbox({
             />
           </>
         )}
-      </button>
+      </div>
 
       {total > 1 && (
         <div className="hidden border-t border-white/10 px-4 py-3 sm:block">
@@ -903,41 +907,45 @@ export function CommunityMediaShowcase({
           className="group relative col-span-1 row-span-1 block overflow-hidden rounded-xl bg-surface ring-1 ring-black/5 transition hover:ring-black/15 sm:col-span-3 sm:row-span-3"
         >
           <FeatureTileMedia item={feature.item} />
-          {/* "View all" pill on the feature tile — reads the gallery's
-              true total (including the hero) so users know the lightbox
-              walks the entire list. */}
-          <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-foreground shadow-[0_2px_8px_rgba(15,23,42,0.16)] backdrop-blur transition group-hover:bg-white">
-            <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden>
-              <path
-                d="M1.5 2.5h5v5h-5zM9.5 2.5h5v5h-5zM1.5 8.5h5v5h-5zM9.5 8.5h5v5h-5z"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            </svg>
-            View all {totalReachable}
-          </span>
         </button>
 
         {/* Column tiles (B, C, D). Each occupies one of the three
             grid rows on ≥sm. On mobile they collapse below the feature
-            into a single-column stack. */}
-        {column.map((entry) => (
-          <button
-            key={entry.item.id}
-            type="button"
-            onClick={() => open(entry.index)}
-            aria-label={
-              entry.item.kind === "video"
-                ? `Play video: ${entry.item.alt}`
-                : `Open photo: ${entry.item.alt}`
-            }
-            className="group relative col-span-1 row-span-1 block overflow-hidden rounded-xl bg-surface ring-1 ring-black/5 transition hover:ring-black/15 sm:col-span-2 sm:row-span-1"
-          >
-            <ColumnTileMedia item={entry.item} />
-          </button>
-        ))}
+            into a single-column stack. The "View all" pill sits on the
+            last column tile (bottom-right of the grid on ≥sm, bottom of
+            the stack on mobile). */}
+        {column.map((entry, i) => {
+          const isLast = i === column.length - 1;
+          return (
+            <button
+              key={entry.item.id}
+              type="button"
+              onClick={() => open(entry.index)}
+              aria-label={
+                entry.item.kind === "video"
+                  ? `Play video: ${entry.item.alt}`
+                  : `Open photo: ${entry.item.alt}`
+              }
+              className="group relative col-span-1 row-span-1 block overflow-hidden rounded-xl bg-surface ring-1 ring-black/5 transition hover:ring-black/15 sm:col-span-2 sm:row-span-1"
+            >
+              <ColumnTileMedia item={entry.item} />
+              {isLast && (
+                <span className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-foreground shadow-[0_2px_8px_rgba(15,23,42,0.16)] backdrop-blur transition group-hover:bg-white">
+                  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden>
+                    <path
+                      d="M1.5 2.5h5v5h-5zM9.5 2.5h5v5h-5zM1.5 8.5h5v5h-5zM9.5 8.5h5v5h-5z"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                      strokeLinejoin="round"
+                      fill="none"
+                    />
+                  </svg>
+                  View all {totalReachable}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* ---------------- Filmstrip of the remaining items ----------------
