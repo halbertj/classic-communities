@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import { requireAdmin } from "@/lib/auth";
 
+import { AdminSidebar } from "./AdminSidebar";
+
 export default async function AdminLayout({
   children,
 }: {
@@ -12,7 +14,7 @@ export default async function AdminLayout({
 
   return (
     <div className="flex min-h-[100dvh] flex-1 flex-col">
-      <header className="flex items-center justify-between border-b border-border bg-surface px-6 py-4">
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-surface px-6 py-4">
         <Link
           href="/admin/communities"
           aria-label="Classic Communities admin home"
@@ -28,15 +30,6 @@ export default async function AdminLayout({
           />
         </Link>
         <div className="flex items-center gap-6 text-sm">
-          <Link
-            href="/admin/communities"
-            className="text-muted hover:text-foreground"
-          >
-            Communities
-          </Link>
-          <Link href="/admin/users" className="text-muted hover:text-foreground">
-            Users
-          </Link>
           <form action="/sign-out" method="POST">
             <button
               type="submit"
@@ -47,7 +40,10 @@ export default async function AdminLayout({
           </form>
         </div>
       </header>
-      <main className="flex-1 bg-background px-6 py-8">{children}</main>
+      <div className="flex flex-1">
+        <AdminSidebar />
+        <main className="flex-1 bg-background px-6 py-8">{children}</main>
+      </div>
     </div>
   );
 }

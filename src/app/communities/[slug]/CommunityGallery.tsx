@@ -115,7 +115,7 @@ export function CommunityGallery({
           still reads behind the type. */}
       <div
         aria-hidden
-        className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.6)_0%,rgba(0,0,0,0.35)_38%,rgba(0,0,0,0.35)_62%,rgba(0,0,0,0.6)_100%)]"
+        className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.4)_0%,rgba(0,0,0,0.15)_38%,rgba(0,0,0,0.15)_62%,rgba(0,0,0,0.4)_100%)]"
       />
       <div className="relative z-10 max-w-3xl">
         <h1 className="font-serif text-4xl font-semibold leading-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)] sm:text-5xl md:text-6xl">
