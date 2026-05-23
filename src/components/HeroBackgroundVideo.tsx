@@ -67,7 +67,6 @@ export function HeroBackgroundVideo({
       autoPlay
       loop
       muted
-      defaultMuted
       playsInline
       // Older WebKit (iOS < 10) used a vendor-prefixed attribute; harmless on newer browsers.
       // @ts-expect-error — non-standard attribute Safari recognizes.
