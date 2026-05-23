@@ -419,8 +419,13 @@ export default async function CommunityDetailPage({ params }: PageProps) {
             feature tile sits to the left with three medium tiles
             stacked beside it; anything else flows into a contact-sheet
             filmstrip below. Clicking any tile opens the same lightbox
-            the gallery uses. We exclude index 0 because that's what the
-            hero up top already shows. */}
+            the gallery uses.
+            We exclude index 0 *only* when the hero is a single video —
+            that item isn't shown anywhere else on the page. For
+            photo-led communities the hero now cycles through every
+            photo via the Ken Burns slideshow, so duplicating none of
+            them in the showcase below means the first photo would
+            never get its own static tile; we include it here. */}
         {galleryItems.length > 1 && (
           <section id="gallery" className="scroll-mt-32 mt-12">
             <div className="mb-4">
@@ -434,7 +439,7 @@ export default async function CommunityDetailPage({ params }: PageProps) {
             <CommunityMediaShowcase
               items={galleryItems}
               communityName={community.name}
-              excludeIndex={0}
+              excludeIndex={galleryItems[0].kind === "video" ? 0 : undefined}
             />
           </section>
         )}
