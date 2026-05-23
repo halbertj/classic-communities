@@ -115,7 +115,7 @@ export function CommunityGallery({
           still reads behind the type. */}
       <div
         aria-hidden
-        className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.4)_0%,rgba(0,0,0,0.15)_38%,rgba(0,0,0,0.15)_62%,rgba(0,0,0,0.4)_100%)]"
+        className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.6)_0%,rgba(0,0,0,0.35)_38%,rgba(0,0,0,0.35)_62%,rgba(0,0,0,0.6)_100%)]"
       />
       <div className="relative z-10 max-w-3xl">
         <h1 className="font-serif text-4xl font-semibold leading-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)] sm:text-5xl md:text-6xl">
@@ -185,6 +185,15 @@ function MediaHeroLayout({
   const hero = items[0];
   const isVideo = hero.kind === "video";
 
+  // When the hero is a photo, gather every photo in the gallery so we
+  // can run a Ken Burns–style slideshow in place of the video. We keep
+  // videos out of the slideshow rotation — mixing autoplaying frames
+  // and silent stills feels jarring.
+  const photoItems = useMemo(
+    () => items.filter((it) => it.kind === "photo"),
+    [items],
+  );
+
   return (
     <div
       className="relative left-[calc(50%-50vw)] w-screen overflow-hidden bg-black"
@@ -215,19 +224,176 @@ function MediaHeroLayout({
           className="h-[70vh] w-full bg-black object-cover"
         />
       ) : (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img
-          src={hero.url}
-          alt={hero.alt}
-          // Same height / object treatment as the video so the two
-          // variants compose interchangeably on the page.
-          className="h-[70vh] w-full bg-black object-cover"
+        <KenBurnsSlideshow
+          photos={photoItems.length > 0 ? photoItems : [hero]}
         />
       )}
       {titleOverlay}
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// KenBurnsSlideshow
+//
+// Stand-in for the hero <video> when a community only has photos. Each
+// slide slowly zooms (and gently pans) for a few seconds, then crossfades
+// into the next photo on an endless loop. With a single photo we still
+// run the zoom — it gives the hero the same sense of life the video
+// version has — but skip the cycling.
+//
+// Implementation notes:
+//   - All slides are stacked absolutely so the crossfade is a pure
+//     opacity transition (no layout thrash).
+//   - The pan/zoom is a CSS keyframe animation re-played per slide by
+//     toggling the active index, which remounts the inner div via `key`
+//     so the animation restarts from frame 0.
+//   - Direction alternates (in/out, panning to opposing corners) so back
+//     to back slides don't feel mechanical.
+// ---------------------------------------------------------------------------
+
+// Total time a slide owns the hero before the next one starts fading in.
+// The fade overlaps the tail of this window, so the *visible* dwell on a
+// fully-opaque slide is roughly SLIDE_MS - FADE_MS.
+const KEN_BURNS_SLIDE_MS = 7000;
+// Crossfade duration. Longer than typical UI transitions because the
+// images themselves are continuing to zoom underneath, and a quick fade
+// makes that motion read as a cut.
+const KEN_BURNS_FADE_MS = 2000;
+// How long the underlying zoom animation runs. Deliberately much longer
+// than a single slide window so the zoom never finishes (and therefore
+// never "snaps" back to its start frame) before the slide cycles out.
+// The slide is only on screen for ~SLIDE_MS, so it only ever plays the
+// first SLIDE_MS / ZOOM_MS of the keyframe — a slow, never-resolving
+// drift. The remount on re-appearance restarts cleanly from frame 0.
+const KEN_BURNS_ZOOM_MS = 20000;
+
+function KenBurnsSlideshow({ photos }: { photos: GalleryItem[] }) {
+  const [active, setActive] = useState(0);
+  const total = photos.length;
+
+  // Per-slide "epoch": bumped each time that slide becomes active. We
+  // key the inner zoom wrapper off this so the animation restarts only
+  // when the slide *re-enters*, not when it becomes inactive. Without
+  // this, going inactive would remount the wrapper and snap the
+  // transform back to keyframe 0 — visible as a jump mid-crossfade.
+  const [epochs, setEpochs] = useState<number[]>(() =>
+    Array.from({ length: total }, () => 0),
+  );
+
+  useEffect(() => {
+    setEpochs((prev) => {
+      if (prev.length === total) return prev;
+      return Array.from({ length: total }, (_, i) => prev[i] ?? 0);
+    });
+  }, [total]);
+
+  useEffect(() => {
+    if (total <= 1) return;
+    const id = window.setInterval(() => {
+      setActive((prev) => {
+        const nextActive = (prev + 1) % total;
+        setEpochs((eps) => {
+          const next = eps.slice();
+          next[nextActive] = (next[nextActive] ?? 0) + 1;
+          return next;
+        });
+        return nextActive;
+      });
+    }, KEN_BURNS_SLIDE_MS);
+    return () => window.clearInterval(id);
+  }, [total]);
+
+  return (
+    <div
+      className="relative h-[70vh] w-full overflow-hidden bg-black"
+      aria-label={`${photos[0].alt} slideshow`}
+    >
+      {photos.map((photo, i) => {
+        const isActive = i === active;
+        const variant = i % 4;
+        const variantClass =
+          variant === 0
+            ? "kenburns-tl"
+            : variant === 1
+              ? "kenburns-br"
+              : variant === 2
+                ? "kenburns-tr"
+                : "kenburns-bl";
+        return (
+          <div
+            key={photo.id}
+            className="absolute inset-0"
+            style={{
+              opacity: isActive ? 1 : 0,
+              transition: `opacity ${KEN_BURNS_FADE_MS}ms cubic-bezier(0.4, 0.0, 0.2, 1)`,
+            }}
+            aria-hidden={!isActive}
+          >
+            {/* Key changes ONLY when this slide re-enters (epoch bumps).
+                Going inactive keeps the same key, so the zoom keeps
+                playing uninterrupted through the entire fade-out. */}
+            <div
+              key={`${i}-${epochs[i] ?? 0}`}
+              className={`h-full w-full kenburns-anim ${variantClass}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={photo.url}
+                alt={photo.alt}
+                className="h-full w-full bg-black object-cover"
+                loading={i === 0 ? "eager" : "lazy"}
+              />
+            </div>
+          </div>
+        );
+      })}
+
+      <style>{KEN_BURNS_CSS}</style>
+    </div>
+  );
+}
+
+const KEN_BURNS_CSS = `
+  .kenburns-anim {
+    animation-duration: ${KEN_BURNS_ZOOM_MS}ms;
+    /* Linear timing because we only ever play the first ~third of the
+       animation before the slide cycles out — an ease curve would make
+       the early motion almost imperceptible. */
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+  /* End frames are exaggerated (scale 1.25, 4% translate) because each
+     slide only plays the first ~third of the keyframe before being
+     swapped out — so the effective motion the viewer sees is roughly
+     scale 1 → 1.08 with a 1.3% pan. */
+  @keyframes kenburns-tl {
+    0%   { transform: scale(1)    translate3d(0, 0, 0); }
+    100% { transform: scale(1.25) translate3d(-4%, -4%, 0); }
+  }
+  @keyframes kenburns-br {
+    0%   { transform: scale(1.25) translate3d(4%, 4%, 0); }
+    100% { transform: scale(1)    translate3d(0, 0, 0); }
+  }
+  @keyframes kenburns-tr {
+    0%   { transform: scale(1)    translate3d(0, 0, 0); }
+    100% { transform: scale(1.25) translate3d(4%, -4%, 0); }
+  }
+  @keyframes kenburns-bl {
+    0%   { transform: scale(1.25) translate3d(-4%, 4%, 0); }
+    100% { transform: scale(1)    translate3d(0, 0, 0); }
+  }
+  .kenburns-tl { animation-name: kenburns-tl; }
+  .kenburns-br { animation-name: kenburns-br; }
+  .kenburns-tr { animation-name: kenburns-tr; }
+  .kenburns-bl { animation-name: kenburns-bl; }
+  @media (prefers-reduced-motion: reduce) {
+    .kenburns-anim { animation: none !important; }
+  }
+`;
 
 function ThumbnailButton({
   item,
