@@ -79,20 +79,21 @@ const NAV: NavItem[] = [
 export function AdminSidebar() {
   const pathname = usePathname();
 
-  // We default to "expanded" on the server / first paint so the layout
-  // never jumps for the common case. The persisted preference is read
-  // in an effect and overrides only when the user has explicitly
-  // collapsed it before.
-  const [collapsed, setCollapsed] = useState(false);
+  // We default to *collapsed* on the server / first paint so the
+  // dashboard opens with maximum content width and the admin can
+  // expand the sidebar deliberately. The persisted preference flips
+  // back to expanded in the effect below if the user has previously
+  // opened the sidebar themselves.
+  const [collapsed, setCollapsed] = useState(true);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored === "1") setCollapsed(true);
+      if (stored === "0") setCollapsed(false);
     } catch {
       // localStorage may be unavailable (e.g. Safari private mode).
-      // Falling back to the default expanded state is fine.
+      // Falling back to the default collapsed state is fine.
     }
     setHydrated(true);
   }, []);
