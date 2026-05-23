@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { AboutGallery } from "@/components/AboutGallery";
+import { HeroBackgroundVideo } from "@/components/HeroBackgroundVideo";
 import { HomeMapSection } from "@/components/HomeMapSection";
 import type { MapCommunity } from "@/components/CommunitiesMap";
 import {
@@ -214,24 +215,14 @@ export default async function HomePage() {
 
         {heroVideoUrl && (
           // Muted + playsInline + autoPlay is the standard recipe that
-          // browsers accept without a user gesture. `preload="auto"`
-          // (rather than "metadata") asks the browser to start
-          // buffering immediately so the transition from poster to
-          // video happens quickly on a warm connection. We point
-          // `poster` at the same still so any flash between Image
-          // load and video decode is invisible.
-          <video
-            src={heroVideoUrl}
-            poster="/silver-creek.png"
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-            disablePictureInPicture
-            aria-hidden
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-          />
+          // browsers accept without a user gesture. We delegate to a
+          // small client component so we can also imperatively call
+          // `play()` (and set `muted` on the DOM property, not just
+          // the attribute) — needed for Mobile Safari Low Power Mode
+          // and some Android x5 webviews. The poster matches the
+          // background still so any flash between Image load and
+          // video decode is invisible.
+          <HeroBackgroundVideo src={heroVideoUrl} poster="/silver-creek.png" />
         )}
 
         {/* Minimal top-right nav, sits above the overlays. Kept inline
