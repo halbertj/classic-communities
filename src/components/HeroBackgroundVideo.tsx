@@ -59,6 +59,16 @@ export function HeroBackgroundVideo({
     };
   }, []);
 
+  // React's HTMLVideoElement typings don't include the non-standard
+  // `webkit-playsinline` (legacy iOS) or `x5-playsinline` (some
+  // Android in-app webviews like WeChat / UC) attributes that some
+  // browsers still honor. We spread them in as untyped extras so the
+  // attributes land on the rendered <video> without tripping TS.
+  const nonStandardAttrs = {
+    "webkit-playsinline": "true",
+    "x5-playsinline": "true",
+  } as Record<string, string>;
+
   return (
     <video
       ref={ref}
@@ -68,17 +78,11 @@ export function HeroBackgroundVideo({
       loop
       muted
       playsInline
-      // Older WebKit (iOS < 10) used a vendor-prefixed attribute; harmless on newer browsers.
-      // @ts-expect-error — non-standard attribute Safari recognizes.
-      webkit-playsinline="true"
-      // x5 players on some Android browsers (UC, QQ, WeChat in-app)
-      // need this hint to play inline rather than full-screen takeover.
-      // @ts-expect-error — non-standard attribute for x5 webview.
-      x5-playsinline="true"
       preload="auto"
       disablePictureInPicture
       aria-hidden
       className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+      {...nonStandardAttrs}
     />
   );
 }
