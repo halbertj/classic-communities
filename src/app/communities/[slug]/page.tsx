@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import ReactDOM from "react-dom";
 
 import type { MapCommunity } from "@/components/CommunitiesMap";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -233,6 +234,26 @@ export default async function CommunityDetailPage({ params }: PageProps) {
     : null;
   const sitePlanIsPdf =
     community.site_plan_path?.toLowerCase().endsWith(".pdf") ?? false;
+
+  // Prioritize the above-the-fold hero assets. We emit high-priority
+  // preload hints (hoisted into <head> by Next/React) for the logo chip
+  // and — when the hero is a video — the video file and its poster, so
+  // the browser fetches them ahead of the lazy-loaded gallery photos
+  // further down the page. The logo and hero video are the first things
+  // a visitor sees, so they should win the initial bandwidth race.
+  const heroItem = galleryItems[0] ?? null;
+  if (logoUrl) {
+    ReactDOM.preload(logoUrl, { as: "image", fetchPriority: "high" });
+  }
+  if (heroItem?.kind === "video") {
+    ReactDOM.preload(heroItem.url, { as: "video", fetchPriority: "high" });
+    if (heroItem.posterUrl) {
+      ReactDOM.preload(heroItem.posterUrl, {
+        as: "image",
+        fetchPriority: "high",
+      });
+    }
+  }
 
   // Individual homes aren't modeled in the DB yet. Keeping this as an
   // explicit empty list (instead of omitting the section) means the layout

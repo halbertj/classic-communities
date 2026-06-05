@@ -99,6 +99,7 @@ export function CommunityGallery({
       <img
         src={logoUrl}
         alt={`${communityName} logo`}
+        fetchPriority="high"
         className="h-12 w-auto max-w-[200px] object-contain sm:h-14 sm:max-w-[260px]"
       />
     </div>
@@ -217,7 +218,7 @@ function MediaHeroLayout({
           loop
           muted
           playsInline
-          preload="metadata"
+          preload="auto"
           disablePictureInPicture
           controlsList="nodownload noplaybackrate nofullscreen"
           aria-label={`${communityName} video`}
@@ -343,6 +344,7 @@ function KenBurnsSlideshow({ photos }: { photos: GalleryItem[] }) {
                 alt={photo.alt}
                 className="h-full w-full bg-black object-cover"
                 loading={i === 0 ? "eager" : "lazy"}
+                fetchPriority={i === 0 ? "high" : "low"}
               />
             </div>
           </div>
